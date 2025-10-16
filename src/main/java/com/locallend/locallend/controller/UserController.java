@@ -25,7 +25,7 @@ public class UserController {
 
 	@GetMapping
 	public List<User> getAllUsers(){
-		return userRepository.findAll()
+		return userRepository.findAll();
 	}
 
 	/**
@@ -33,7 +33,7 @@ public class UserController {
 	* @param user - user info in JSON
 	* @return saved user
 	**/
-	@postMapping
+	@PostMapping
 	public User addUser (@RequestBody User user){
 		return userRepository.save(user);
 	}
