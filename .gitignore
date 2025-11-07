@@ -32,3 +32,19 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Documentation and Scripts ###
+# Implementation documentation
+ISSUE_*_IMPLEMENTATION.md
+README_SIMPLE.md
+
+# Test documentation
+TEST_RESULTS.md
+TESTING_SUMMARY.md
+TEST_GUIDE.md
+
+# API documentation
+API_CATEGORIES_ENDPOINTS.txt
+
+# PowerShell scripts
+*.ps1

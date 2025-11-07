@@ -1,0 +1,1510 @@
+================================================================================
+                    LOCALLEND BACKEND API INTEGRATION GUIDE
+                          Frontend Development Reference
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. System Overview
+2. Authentication & Authorization
+3. API Endpoints Reference
+4. Data Models & DTOs
+5. Frontend Pages/Views Required
+6. Common Workflows
+7. Error Handling
+8. Best Practices
+
+
+================================================================================
+1. SYSTEM OVERVIEW
+================================================================================
+
+LocalLend is a peer-to-peer item sharing platform where users can:
+- List items they own for others to borrow
+- Browse and search items available in their community
+- Request to borrow items from other users
+- Manage bookings (approve, track, complete)
+- Rate users and items after completed transactions
+- Build trust scores through positive interactions
+
+TECHNOLOGY STACK:
+- Backend: Spring Boot 3.5.6 with MongoDB
+- Authentication: JWT (JSON Web Tokens)
+- API Style: RESTful JSON APIs
+- Security: Spring Security with role-based access
+
+
+================================================================================
+2. AUTHENTICATION & AUTHORIZATION
+================================================================================
+
+2.1 AUTHENTICATION FLOW
+-----------------------
+1. User registers via POST /api/auth/register
+2. User logs in via POST /api/auth/login → receives JWT token
+3. Include token in all subsequent requests:
+   Header: Authorization: Bearer <jwt_token>
+
+2.2 REQUIRED HEADERS
+--------------------
+For ALL authenticated requests:
+- Authorization: Bearer <jwt_token>
+
+For item/booking operations (owner/borrower specific):
+- Authorization: Bearer <jwt_token>
+- X-User-Id: <user_id>
+
+2.3 PUBLIC ENDPOINTS (No Authentication Required)
+-------------------------------------------------
+- POST   /api/auth/register
+- POST   /api/auth/login
+- GET    /api/categories/**
+- GET    /api/items/**
+- GET    /api/users/{userId}/public
+- GET    /api/users/search
+
+2.4 USER ROLES
+--------------
+- USER: Standard user (default role)
+- ADMIN: Administrative access (future feature)
+
+All users have the same basic permissions but operations are restricted based on
+ownership (e.g., only item owner can delete their items).
+
+
+================================================================================
+3. API ENDPOINTS REFERENCE
+================================================================================
+
+BASE URL: http://localhost:8080
+
+------------------------------------------------------------------------------
+3.1 AUTHENTICATION ENDPOINTS
+------------------------------------------------------------------------------
+
+POST /api/auth/register
+------------------------
+Register a new user account
+
+Request Body:
+{
+  "username": "string (3-50 chars, required)",
+  "name": "string (2-100 chars, required)",
+  "email": "string (valid email, required)",
+  "password": "string (min 8 chars, required)",
+  "phoneNumber": "string (optional)"
+}
+
+Response (200):
+{
+  "id": "string",
+  "username": "string",
+  "name": "string",
+  "email": "string",
+  "phoneNumber": "string",
+  "profileImageUrl": "string",
+  "role": "USER",
+  "isActive": true,
+  "createdDate": "timestamp",
+  "trustScore": 5.0,
+  "itemCount": 0,
+  "memberSince": "string",
+  "totalItemsShared": 0,
+  "totalBookings": 0
+}
+
+
+POST /api/auth/login
+--------------------
+Login and receive JWT token
+
+Request Body:
+{
+  "usernameOrEmail": "string (required)",
+  "password": "string (required)"
+}
+
+Response (200):
+{
+  "token": "eyJhbGc...",
+  "type": "Bearer",
+  "user": {
+    "id": "string",
+    "username": "string",
+    "name": "string",
+    "email": "string",
+    "role": "USER",
+    "trustScore": 5.0
+  }
+}
+
+
+------------------------------------------------------------------------------
+3.2 USER ENDPOINTS
+------------------------------------------------------------------------------
+
+GET /api/users/{userId}/public
+-------------------------------
+Get public user profile (no authentication required)
+
+Response (200):
+{
+  "id": "string",
+  "username": "string",
+  "name": "string",
+  "profileImageUrl": "string",
+  "trustScore": 5.0,
+  "itemCount": 3,
+  "memberSince": "Member since November 2025"
+}
+
+
+GET /api/users/search?query={searchTerm}
+-----------------------------------------
+Search users by username or name
+
+Query Parameters:
+- query: string (search term)
+
+Response (200):
+{
+  "data": [
+    {
+      "id": "string",
+      "username": "string",
+      "name": "string",
+      "profileImageUrl": "string",
+      "trustScore": 5.0,
+      "itemCount": 3
+    }
+  ],
+  "count": 1
+}
+
+
+------------------------------------------------------------------------------
+3.3 CATEGORY ENDPOINTS
+------------------------------------------------------------------------------
+
+GET /api/categories
+-------------------
+Get all categories (public endpoint)
+
+Query Parameters:
+- sort: string (optional, default: "name")
+
+Response (200):
+{
+  "data": [
+    {
+      "id": "string",
+      "name": "string",
+      "description": "string",
+      "parent_category_id": "string",
+      "parent_category_name": "string",
+      "is_active": true,
+      "item_count": 5,
+      "has_subcategories": false,
+      "created_at": "timestamp",
+      "updated_at": "timestamp"
+    }
+  ],
+  "success": true,
+  "count": 2,
+  "message": "Categories retrieved successfully"
+}
+
+
+POST /api/categories
+--------------------
+Create a new category (authenticated)
+
+Headers:
+- Authorization: Bearer <token>
+
+Request Body:
+{
+  "name": "string (required)",
+  "description": "string (optional)",
+  "parentCategoryId": "string (optional)"
+}
+
+Response (201): Returns created category object
+
+
+GET /api/categories/{categoryId}
+---------------------------------
+Get single category details
+
+Response (200): Returns category object with subcategories
+
+
+GET /api/categories/search?term={searchTerm}
+--------------------------------------------
+Search categories by name or description
+
+Response (200): Returns matching categories
+
+
+------------------------------------------------------------------------------
+3.4 ITEM ENDPOINTS
+------------------------------------------------------------------------------
+
+GET /api/items
+--------------
+Get all items with pagination (public endpoint)
+
+Query Parameters:
+- page: integer (default: 0)
+- size: integer (default: 10)
+- sort: string (default: "createdAt,desc")
+- categoryId: string (optional, filter by category)
+- ownerId: string (optional, filter by owner)
+- condition: string (optional, NEW|EXCELLENT|GOOD|FAIR|POOR)
+- status: string (optional, AVAILABLE|UNAVAILABLE|BORROWED)
+
+Response (200):
+{
+  "content": [
+    {
+      "id": "string",
+      "name": "string",
+      "description": "string",
+      "condition": "EXCELLENT",
+      "status": "AVAILABLE",
+      "deposit": 50.0,
+      "images": ["url1", "url2"],
+      "averageRating": 4.5,
+      "ownerId": "string",
+      "ownerName": "string",
+      "categoryId": "string",
+      "categoryName": "string",
+      "canBeBorrowed": true,
+      "createdAt": "timestamp",
+      "updatedAt": "timestamp"
+    }
+  ],
+  "pageable": {...},
+  "totalElements": 6,
+  "totalPages": 1,
+  "first": true,
+  "last": true
+}
+
+
+POST /api/items
+---------------
+Create a new item listing (authenticated)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <user_id>
+
+Request Body:
+{
+  "name": "string (required)",
+  "description": "string (required)",
+  "categoryId": "string (required)",
+  "deposit": 0.0,
+  "images": ["url1", "url2"],
+  "condition": "EXCELLENT" // NEW|EXCELLENT|GOOD|FAIR|POOR
+}
+
+Response (201): Returns created item object
+
+
+GET /api/items/{itemId}
+-----------------------
+Get single item details
+
+Response (200): Returns detailed item object
+
+
+PUT /api/items/{itemId}
+-----------------------
+Update item details (owner only)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <user_id>
+
+Request Body:
+{
+  "name": "string",
+  "description": "string",
+  "categoryId": "string",
+  "deposit": 50.0,
+  "condition": "GOOD"
+}
+
+Response (200): Returns updated item object
+
+
+DELETE /api/items/{itemId}
+--------------------------
+Delete item (owner only, must have no active bookings)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <user_id>
+
+Response (204): No content on success
+
+
+PATCH /api/items/{itemId}/status
+---------------------------------
+Update item availability status (owner only)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <user_id>
+
+Request Body:
+{
+  "status": "AVAILABLE" // AVAILABLE|UNAVAILABLE|BORROWED
+}
+
+Response (200): Returns updated item object
+
+
+GET /api/items/search?query={searchTerm}
+----------------------------------------
+Search items by name or description
+
+Query Parameters:
+- query: string (required)
+- categoryId: string (optional)
+- condition: string (optional)
+
+Response (200): Returns matching items
+
+
+------------------------------------------------------------------------------
+3.5 BOOKING ENDPOINTS
+------------------------------------------------------------------------------
+
+POST /api/bookings
+------------------
+Create a new booking request
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <borrower_id>
+
+Request Body:
+{
+  "itemId": "string (required)",
+  "startDate": "2025-11-10T10:00:00 (required, future date)",
+  "endDate": "2025-11-13T10:00:00 (required, after start date)",
+  "bookingNotes": "string (max 500 chars, optional)",
+  "depositAmount": 100.0,
+  "requestedDurationDays": 3,
+  "acceptTerms": true (required, must be true)
+}
+
+Response (201):
+{
+  "id": "string",
+  "itemId": "string",
+  "itemName": "string",
+  "borrowerId": "string",
+  "borrowerName": "string",
+  "ownerId": "string",
+  "ownerName": "string",
+  "status": "PENDING",
+  "startDate": "timestamp",
+  "endDate": "timestamp",
+  "bookingNotes": "string",
+  "depositAmount": 100.0,
+  "createdDate": "timestamp",
+  "isRated": false,
+  "durationDays": 3,
+  "statusDescription": "string",
+  "timeAgo": "string",
+  "canBeCancelled": true,
+  "canBeConfirmed": false
+}
+
+
+GET /api/bookings/my-bookings
+-----------------------------
+Get bookings where current user is borrower
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <user_id>
+
+Response (200): Array of booking objects
+
+
+GET /api/bookings/my-owned-bookings
+-----------------------------------
+Get bookings for items owned by current user
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <user_id>
+
+Response (200): Array of booking objects
+
+
+GET /api/bookings/pending-approvals
+------------------------------------
+Get bookings awaiting owner approval
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <owner_id>
+
+Response (200): Array of pending booking objects
+
+
+GET /api/bookings/{bookingId}
+------------------------------
+Get single booking details
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <user_id>
+
+Response (200): Returns booking object
+
+
+PATCH /api/bookings/{bookingId}/approve
+----------------------------------------
+Approve a booking request (owner only)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <owner_id>
+
+Response (200): Returns updated booking with status CONFIRMED
+
+
+PATCH /api/bookings/{bookingId}/reject
+---------------------------------------
+Reject a booking request (owner only)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <owner_id>
+
+Request Body (optional):
+{
+  "rejectionReason": "string (max 500 chars)"
+}
+
+Response (200): Returns updated booking with status REJECTED
+
+
+PATCH /api/bookings/{bookingId}/start
+--------------------------------------
+Start a confirmed booking (borrower picks up item)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <borrower_id>
+
+Response (200): Returns updated booking with status ACTIVE
+
+
+PATCH /api/bookings/{bookingId}/complete
+-----------------------------------------
+Complete an active booking (borrower returns item)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <borrower_id>
+
+Response (200): Returns updated booking with status COMPLETED
+
+
+PATCH /api/bookings/{bookingId}/cancel
+---------------------------------------
+Cancel a booking (borrower only, before it starts)
+
+Headers:
+- Authorization: Bearer <token>
+- X-User-Id: <borrower_id>
+
+Request Body (optional):
+{
+  "cancellationReason": "string (max 500 chars)"
+}
+
+Response (200): Returns updated booking with status CANCELLED
+
+
+BOOKING STATUS FLOW:
+PENDING → CONFIRMED → ACTIVE → COMPLETED
+   ↓          ↓         ↓
+REJECTED   CANCELLED  CANCELLED
+
+
+------------------------------------------------------------------------------
+3.6 RATING ENDPOINTS
+------------------------------------------------------------------------------
+
+POST /api/ratings
+-----------------
+Create a new rating (requires completed booking for user ratings)
+
+Headers:
+- Authorization: Bearer <token>
+
+Request Body:
+{
+  "rateeId": "string (user being rated, required)",
+  "ratingType": "USER_TO_USER|USER_TO_ITEM|BORROWER_TO_OWNER|OWNER_TO_BORROWER",
+  "ratingValue": 5, // 1-5 (required)
+  "comment": "string (max 1000 chars, optional)",
+  "bookingId": "string (required for user ratings)",
+  "itemId": "string (required for USER_TO_ITEM)",
+  "isAnonymous": false
+}
+
+Response (201):
+{
+  "success": true,
+  "message": "Rating created successfully",
+  "data": {
+    "id": "string",
+    "rater_id": "string",
+    "rater_name": "string",
+    "ratee_id": "string",
+    "ratee_name": "string",
+    "rating_type": "BORROWER_TO_OWNER",
+    "rating_value": 5,
+    "comment": "string",
+    "booking_id": "string",
+    "created_at": "timestamp",
+    "is_anonymous": false
+  }
+}
+
+RATING VALIDATION (Issue #26):
+- Booking must exist and be COMPLETED
+- Only borrower can rate the booking
+- Each booking can only be rated once
+- Trust scores automatically updated after rating
+
+
+GET /api/ratings/can-rate/{bookingId}
+--------------------------------------
+Check if current user can rate a booking (Issue #26 feature)
+
+Headers:
+- Authorization: Bearer <token>
+
+Response (200):
+{
+  "success": true,
+  "can_rate": true,
+  "booking_id": "string"
+}
+
+Returns false if:
+- Booking doesn't exist
+- Booking status is not COMPLETED
+- User is not the borrower
+- Booking has already been rated
+
+
+GET /api/ratings/user/{userId}/received
+----------------------------------------
+Get ratings received by a user
+
+Headers:
+- Authorization: Bearer <token>
+
+Query Parameters:
+- page: integer (default: 0)
+- size: integer (default: 10)
+- ratingType: string (optional filter)
+
+Response (200):
+{
+  "data": [
+    {
+      "id": "string",
+      "rater_name": "string",
+      "rating_value": 5,
+      "comment": "string",
+      "rating_type": "BORROWER_TO_OWNER",
+      "created_at": "timestamp"
+    }
+  ],
+  "pageable": {...},
+  "totalElements": 10
+}
+
+
+GET /api/ratings/user/{userId}/given
+-------------------------------------
+Get ratings given by a user
+
+Headers:
+- Authorization: Bearer <token>
+
+Response (200): Similar structure to received ratings
+
+
+GET /api/ratings/item/{itemId}
+-------------------------------
+Get all ratings for an item
+
+Headers:
+- Authorization: Bearer <token>
+
+Response (200): Array of rating objects
+
+
+GET /api/ratings/user/{userId}/statistics
+------------------------------------------
+Get rating statistics for a user
+
+Headers:
+- Authorization: Bearer <token>
+
+Response (200):
+{
+  "data": {
+    "user_id": "string",
+    "total_ratings_received": 5,
+    "average_rating": 4.6,
+    "trust_score": 4.8,
+    "ratings_by_type": {
+      "BORROWER_TO_OWNER": {
+        "count": 3,
+        "average": 4.7
+      },
+      "OWNER_TO_BORROWER": {
+        "count": 2,
+        "average": 4.5
+      }
+    },
+    "rating_distribution": {
+      "5": 3,
+      "4": 1,
+      "3": 1
+    },
+    "recent_ratings": [...]
+  }
+}
+
+
+GET /api/ratings/{ratingId}
+----------------------------
+Get single rating details
+
+Headers:
+- Authorization: Bearer <token>
+
+Response (200): Returns rating object
+
+
+================================================================================
+4. DATA MODELS & DTOs
+================================================================================
+
+4.1 USER MODEL
+--------------
+{
+  "id": "string",
+  "username": "string (unique)",
+  "name": "string",
+  "email": "string (unique)",
+  "phoneNumber": "string",
+  "profileImageUrl": "string",
+  "role": "USER|ADMIN",
+  "isActive": boolean,
+  "trustScore": number (0-5),
+  "location": {
+    "type": "Point",
+    "coordinates": [longitude, latitude]
+  },
+  "address": {
+    "street": "string",
+    "city": "string",
+    "state": "string",
+    "zipCode": "string",
+    "country": "string"
+  },
+  "createdDate": "timestamp",
+  "lastLogin": "timestamp",
+  "totalRatingsReceived": number,
+  "ratingCountAsBorrower": number,
+  "ratingCountAsLender": number,
+  "averageRatingAsBorrower": number,
+  "averageRatingAsLender": number
+}
+
+
+4.2 ITEM MODEL
+--------------
+{
+  "id": "string",
+  "name": "string",
+  "description": "string",
+  "condition": "NEW|EXCELLENT|GOOD|FAIR|POOR",
+  "status": "AVAILABLE|UNAVAILABLE|BORROWED",
+  "deposit": number,
+  "images": ["url1", "url2"],
+  "averageRating": number,
+  "ownerId": "string",
+  "ownerName": "string",
+  "categoryId": "string",
+  "categoryName": "string",
+  "canBeBorrowed": boolean,
+  "createdAt": "timestamp",
+  "updatedAt": "timestamp"
+}
+
+
+4.3 BOOKING MODEL
+-----------------
+{
+  "id": "string",
+  "itemId": "string",
+  "itemName": "string",
+  "itemImageUrl": "string",
+  "borrowerId": "string",
+  "borrowerName": "string",
+  "ownerId": "string",
+  "ownerName": "string",
+  "status": "PENDING|CONFIRMED|ACTIVE|COMPLETED|REJECTED|CANCELLED",
+  "startDate": "timestamp",
+  "endDate": "timestamp",
+  "actualStartDate": "timestamp",
+  "actualEndDate": "timestamp",
+  "bookingNotes": "string",
+  "ownerNotes": "string",
+  "depositAmount": number,
+  "depositPaid": boolean,
+  "createdDate": "timestamp",
+  "updatedDate": "timestamp",
+  "confirmedDate": "timestamp",
+  "cancelledDate": "timestamp",
+  "cancellationReason": "string",
+  "isRated": boolean,
+  "durationDays": number,
+  "statusDescription": "string",
+  "timeAgo": "string",
+  "daysUntilStart": number,
+  "daysUntilEnd": number,
+  "canBeCancelled": boolean,
+  "canBeConfirmed": boolean,
+  "canBeActivated": boolean,
+  "canBeCompleted": boolean,
+  "isOverdue": boolean,
+  "requiresDeposit": boolean
+}
+
+
+4.4 RATING MODEL
+----------------
+{
+  "id": "string",
+  "raterId": "string",
+  "raterName": "string",
+  "rateeId": "string",
+  "rateeName": "string",
+  "ratingType": "USER_TO_USER|USER_TO_ITEM|BORROWER_TO_OWNER|OWNER_TO_BORROWER",
+  "ratingValue": number (1-5),
+  "comment": "string",
+  "bookingId": "string",
+  "itemId": "string",
+  "isAnonymous": boolean,
+  "createdAt": "timestamp"
+}
+
+
+4.5 CATEGORY MODEL
+------------------
+{
+  "id": "string",
+  "name": "string",
+  "description": "string",
+  "parentCategoryId": "string",
+  "parentCategoryName": "string",
+  "isActive": boolean,
+  "itemCount": number,
+  "hasSubcategories": boolean,
+  "createdAt": "timestamp",
+  "updatedAt": "timestamp"
+}
+
+
+================================================================================
+5. FRONTEND PAGES/VIEWS REQUIRED
+================================================================================
+
+5.1 AUTHENTICATION PAGES
+-------------------------
+- /register - User Registration Page
+  • Form: username, name, email, password, phone number
+  • Validation: Real-time field validation
+  • Auto-login after successful registration
+  
+- /login - User Login Page
+  • Form: username/email, password
+  • Store JWT token in localStorage/sessionStorage
+  • Redirect to dashboard after login
+
+
+5.2 PUBLIC PAGES
+----------------
+- / (Home) - Landing Page
+  • Hero section with platform overview
+  • Featured/recent items
+  • Category browse
+  • Search bar
+  
+- /items - Browse All Items
+  • Grid/list view of all items
+  • Filters: category, condition, availability
+  • Pagination
+  • Search functionality
+  
+- /items/{itemId} - Item Detail Page
+  • Full item details with image gallery
+  • Owner information
+  • Average rating and reviews
+  • "Request to Borrow" button (if authenticated)
+  • Calendar showing availability
+  
+- /categories - Browse Categories
+  • Category grid with item counts
+  • Click to filter items by category
+  
+- /users/{userId} - Public User Profile
+  • User name, trust score, member since
+  • Items shared by user
+  • Public ratings/reviews
+
+
+5.3 AUTHENTICATED USER PAGES
+-----------------------------
+- /dashboard - User Dashboard
+  • Overview of user's items
+  • Active bookings (as borrower and owner)
+  • Pending approvals
+  • Recent activity
+  • Trust score display
+  
+- /my-items - Manage My Items
+  • List of all user's items
+  • Add new item button
+  • Edit/delete item actions
+  • Item status toggle (available/unavailable)
+  
+- /my-items/new - Add New Item
+  • Form: name, description, category, condition, deposit, images
+  • Image upload functionality
+  • Category selector
+  
+- /my-items/{itemId}/edit - Edit Item
+  • Pre-filled form with existing item data
+  • Update item details
+  
+- /my-bookings - My Bookings (as Borrower)
+  • List of all bookings where user is borrower
+  • Filter by status (pending, active, completed)
+  • Actions: cancel, start, complete
+  • Rate after completion
+  
+- /bookings-received - Bookings Received (as Owner)
+  • List of bookings for user's items
+  • Pending approvals highlighted
+  • Actions: approve, reject
+  
+- /bookings/{bookingId} - Booking Detail Page
+  • Full booking information
+  • Timeline/status tracker
+  • Chat/messaging (future feature)
+  • Actions based on role and status
+  
+- /profile - User Profile Settings
+  • Edit profile information
+  • Change password
+  • Upload profile picture
+  • Location/address settings
+  
+- /profile/ratings - My Ratings
+  • Tabs: Received, Given
+  • Rating statistics
+  • Filter by rating type
+
+
+5.4 BOOKING FLOW PAGES
+-----------------------
+- /items/{itemId}/book - Request Booking
+  • Date picker for start/end dates
+  • Duration calculator
+  • Deposit amount display
+  • Booking notes textarea
+  • Terms and conditions checkbox
+  • "Submit Booking Request" button
+  
+- /bookings/{bookingId}/rate - Rate User/Item
+  • Star rating selector (1-5)
+  • Comment textarea
+  • Anonymous option checkbox
+  • Pre-check if booking can be rated (use can-rate endpoint)
+
+
+5.5 ADDITIONAL UI COMPONENTS
+-----------------------------
+- Navigation Bar
+  • Logo/Home link
+  • Search bar
+  • Categories dropdown
+  • User menu (if authenticated)
+    - Dashboard
+    - My Items
+    - My Bookings
+    - Profile
+    - Logout
+  • Login/Register buttons (if not authenticated)
+  
+- Footer
+  • About, Terms, Privacy links
+  • Social media links
+  • Contact information
+  
+- Search Component
+  • Auto-complete suggestions
+  • Filter options
+  • Recent searches
+  
+- Notification System
+  • Toast/snackbar for success/error messages
+  • Notification bell for:
+    - New booking requests
+    - Booking approvals/rejections
+    - Upcoming booking dates
+    - Rating reminders
+  
+- Trust Score Badge
+  • Visual representation (stars/number)
+  • Tooltip with breakdown
+  
+- Status Badges
+  • Color-coded status indicators
+  • PENDING: Yellow
+  • CONFIRMED: Blue
+  • ACTIVE: Green
+  • COMPLETED: Gray
+  • REJECTED/CANCELLED: Red
+
+
+================================================================================
+6. COMMON WORKFLOWS
+================================================================================
+
+6.1 USER REGISTRATION & LOGIN
+------------------------------
+1. User fills registration form
+2. POST /api/auth/register with user details
+3. Store returned user data and auto-login
+4. Redirect to dashboard
+
+For login:
+1. User enters credentials
+2. POST /api/auth/login
+3. Store JWT token in localStorage
+4. Store user data in app state
+5. Redirect to dashboard
+
+
+6.2 BROWSING & SEARCHING ITEMS
+-------------------------------
+1. GET /api/items with pagination/filters
+2. Display items in grid/list view
+3. For search: GET /api/items/search?query={term}
+4. Click item → Navigate to /items/{itemId}
+5. GET /api/items/{itemId} for full details
+
+
+6.3 CREATING AN ITEM LISTING
+-----------------------------
+1. Navigate to /my-items/new
+2. Fill item details form
+3. Upload images (store URLs)
+4. POST /api/items with Authorization and X-User-Id headers
+5. On success, redirect to /my-items
+6. Show success notification
+
+
+6.4 BOOKING REQUEST FLOW (Complete Lifecycle)
+----------------------------------------------
+BORROWER SIDE:
+1. Browse items, click "Request to Borrow"
+2. Fill booking form (dates, notes)
+3. POST /api/bookings → Status: PENDING
+4. Wait for owner approval
+5. When approved (CONFIRMED), receive notification
+6. When ready to pick up, click "Start Booking"
+7. PATCH /api/bookings/{id}/start → Status: ACTIVE
+8. Use item during booking period
+9. When returning, click "Complete Booking"
+10. PATCH /api/bookings/{id}/complete → Status: COMPLETED
+11. System prompts to rate owner
+12. Check if can rate: GET /api/ratings/can-rate/{bookingId}
+13. If can_rate: true, show rating form
+14. POST /api/ratings with booking details
+15. Booking marked as rated (isRated: true)
+
+OWNER SIDE:
+1. Receive notification of new booking request
+2. View pending bookings in dashboard
+3. GET /api/bookings/pending-approvals
+4. Click booking to view details
+5. Review borrower profile, trust score
+6. Decide to approve or reject
+7. PATCH /api/bookings/{id}/approve → Status: CONFIRMED
+   OR
+   PATCH /api/bookings/{id}/reject → Status: REJECTED
+8. Track booking status through lifecycle
+9. After completion, optionally rate borrower
+
+
+6.5 RATING AFTER BOOKING
+-------------------------
+1. Booking completed
+2. Call GET /api/ratings/can-rate/{bookingId}
+3. If response.can_rate === true:
+   - Show rating button/form
+   - User selects rating (1-5 stars)
+   - User writes optional comment
+   - POST /api/ratings with:
+     • rateeId: owner's user ID
+     • ratingType: BORROWER_TO_OWNER
+     • ratingValue: 1-5
+     • comment: optional text
+     • bookingId: booking ID
+4. On success:
+   - Show success message
+   - Update booking UI (show "Rated" badge)
+   - Refresh user's trust score
+5. If response.can_rate === false:
+   - Hide rating button
+   - Show "Already Rated" badge
+
+
+6.6 UPDATING ITEM STATUS
+-------------------------
+1. Navigate to /my-items
+2. Toggle item availability switch
+3. PATCH /api/items/{itemId}/status
+4. Headers: Authorization + X-User-Id
+5. Body: { "status": "AVAILABLE" | "UNAVAILABLE" }
+6. Update UI to reflect new status
+
+
+================================================================================
+7. ERROR HANDLING
+================================================================================
+
+7.1 HTTP STATUS CODES
+----------------------
+- 200 OK: Successful GET/PUT/PATCH
+- 201 Created: Successful POST
+- 204 No Content: Successful DELETE
+- 400 Bad Request: Validation errors, invalid data
+- 401 Unauthorized: Missing or invalid JWT token
+- 403 Forbidden: Insufficient permissions
+- 404 Not Found: Resource doesn't exist
+- 409 Conflict: Duplicate resource (username/email exists)
+- 500 Internal Server Error: Server-side error
+
+
+7.2 ERROR RESPONSE FORMAT
+--------------------------
+{
+  "status": 400,
+  "message": "Validation failed",
+  "timestamp": "2025-11-08T10:00:00",
+  "details": "Username already exists",
+  "error_code": "VALIDATION_ERROR"
+}
+
+
+7.3 COMMON ERROR SCENARIOS & HANDLING
+--------------------------------------
+401 Unauthorized:
+- JWT token expired or invalid
+- Action: Redirect to login, clear stored token
+- Show message: "Session expired, please login again"
+
+403 Forbidden:
+- User trying to modify someone else's resource
+- Action: Show error message, don't allow action
+- Example: Trying to delete another user's item
+
+400 Bad Request (Booking):
+- "Cannot transition from CONFIRMED to COMPLETED"
+- Action: Show current status, available actions
+- Guide user through correct status flow
+
+400 Bad Request (Rating):
+- "Required request header 'X-User-Id' is not present"
+- Action: Ensure X-User-Id header is included in request
+
+409 Conflict:
+- "Username already exists"
+- Action: Highlight field, suggest alternatives
+- Real-time validation during registration
+
+Issue #26 Specific Errors:
+- "Booking must be COMPLETED to rate"
+  → Show booking status, explain rating requirements
+- "Only borrower can rate this booking"
+  → Hide rating button if user is not borrower
+- "Booking has already been rated"
+  → Show "Already Rated" badge, hide rating form
+
+
+7.4 FRONTEND ERROR HANDLING BEST PRACTICES
+-------------------------------------------
+1. Always wrap API calls in try-catch blocks
+2. Check response status before parsing JSON
+3. Display user-friendly error messages
+4. Log errors for debugging (console.error)
+5. Provide actionable guidance (e.g., "Check your internet connection")
+6. Use loading states during API calls
+7. Implement retry logic for transient failures
+8. Validate forms client-side before API calls
+
+
+================================================================================
+8. BEST PRACTICES
+================================================================================
+
+8.1 AUTHENTICATION & SECURITY
+------------------------------
+✓ Store JWT token securely (httpOnly cookies preferred, or localStorage)
+✓ Include Authorization header in ALL authenticated requests
+✓ Clear token on logout
+✓ Redirect to login on 401 Unauthorized
+✓ Don't store sensitive data (passwords) in frontend
+✓ Implement token refresh mechanism if token has expiration
+✓ Validate user input before sending to backend
+
+
+8.2 API CALLS
+-------------
+✓ Use environment variables for API base URL
+✓ Create reusable API service/utility functions
+✓ Implement request interceptors for adding auth headers
+✓ Implement response interceptors for error handling
+✓ Show loading indicators during API calls
+✓ Debounce search inputs (300-500ms delay)
+✓ Cache frequently accessed data (categories, user profile)
+✓ Use pagination for large data sets
+
+
+8.3 STATE MANAGEMENT
+--------------------
+✓ Store authenticated user data in global state
+✓ Update local state optimistically for better UX
+✓ Sync state after API responses
+✓ Invalidate cached data after mutations
+✓ Use React Query, SWR, or similar for data fetching
+
+
+8.4 UI/UX CONSIDERATIONS
+------------------------
+✓ Show clear status indicators for bookings
+✓ Use color coding for different statuses
+✓ Provide real-time feedback (success/error messages)
+✓ Implement skeleton loaders for better perceived performance
+✓ Make trust scores prominent to build confidence
+✓ Show confirmation dialogs for destructive actions
+✓ Use form validation with clear error messages
+✓ Implement responsive design (mobile-first)
+✓ Add empty states ("No items yet" with CTA)
+✓ Show item availability calendars
+
+
+8.5 RATING SYSTEM (Issue #26)
+------------------------------
+✓ Always call can-rate endpoint before showing rating form
+✓ Disable rating button if can_rate is false
+✓ Show clear messages:
+  - "Complete the booking to rate"
+  - "You've already rated this booking"
+  - "Only borrowers can rate"
+✓ Display "Rated" badge on completed rated bookings
+✓ Prevent duplicate rating attempts on frontend
+✓ Show trust score updates immediately after rating
+✓ Allow users to see their rating history
+
+
+8.6 IMAGE HANDLING
+------------------
+✓ Implement image upload functionality
+✓ Compress images before upload
+✓ Support multiple image formats (JPG, PNG, WebP)
+✓ Show image previews before upload
+✓ Implement image gallery/carousel for item details
+✓ Use placeholder images for items without photos
+✓ Lazy load images for better performance
+
+
+8.7 SEARCH & FILTERING
+-----------------------
+✓ Implement auto-complete for search
+✓ Show recent searches
+✓ Persist search query in URL for shareability
+✓ Allow multiple filter combinations
+✓ Show filter count ("Showing 12 of 45 items")
+✓ Clear filters button
+✓ Sort options (newest, popular, nearest)
+
+
+8.8 NOTIFICATIONS
+-----------------
+✓ Show success messages after actions
+✓ Display error messages clearly
+✓ Implement in-app notification center
+✓ Badge count for unread notifications
+✓ Types of notifications:
+  - New booking request received
+  - Booking approved/rejected
+  - Booking starting soon
+  - Booking completed - reminder to rate
+  - New rating received
+✓ Push notifications (future enhancement)
+
+
+8.9 PERFORMANCE OPTIMIZATION
+-----------------------------
+✓ Lazy load routes/pages
+✓ Implement infinite scroll for item lists
+✓ Cache API responses
+✓ Minimize bundle size
+✓ Use CDN for static assets
+✓ Implement service workers for offline support
+✓ Optimize images (WebP, responsive sizes)
+
+
+8.10 TESTING
+------------
+✓ Test authentication flow end-to-end
+✓ Test booking lifecycle thoroughly
+✓ Test rating system with various scenarios
+✓ Test error handling and edge cases
+✓ Test on different devices and browsers
+✓ Test with slow network (throttling)
+✓ Verify security (XSS, CSRF protection)
+
+
+================================================================================
+APPENDIX A: EXAMPLE API CALL SNIPPETS
+================================================================================
+
+A.1 JAVASCRIPT FETCH EXAMPLES
+------------------------------
+
+// Login
+async function login(usernameOrEmail, password) {
+  const response = await fetch('http://localhost:8080/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usernameOrEmail, password })
+  });
+  const data = await response.json();
+  localStorage.setItem('token', data.token);
+  return data;
+}
+
+// Get items with auth
+async function getItems(page = 0, size = 10) {
+  const token = localStorage.getItem('token');
+  const response = await fetch(
+    `http://localhost:8080/api/items?page=${page}&size=${size}`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+  return response.json();
+}
+
+// Create item
+async function createItem(itemData, userId) {
+  const token = localStorage.getItem('token');
+  const response = await fetch('http://localhost:8080/api/items', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'X-User-Id': userId
+    },
+    body: JSON.stringify(itemData)
+  });
+  return response.json();
+}
+
+// Check if can rate booking (Issue #26)
+async function canRateBooking(bookingId) {
+  const token = localStorage.getItem('token');
+  const response = await fetch(
+    `http://localhost:8080/api/ratings/can-rate/${bookingId}`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+  const data = await response.json();
+  return data.can_rate;
+}
+
+// Create rating
+async function createRating(ratingData) {
+  const token = localStorage.getItem('token');
+  const response = await fetch('http://localhost:8080/api/ratings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(ratingData)
+  });
+  return response.json();
+}
+
+
+A.2 AXIOS EXAMPLES
+------------------
+
+import axios from 'axios';
+
+// Configure axios instance
+const api = axios.create({
+  baseURL: 'http://localhost:8080',
+  headers: { 'Content-Type': 'application/json' }
+});
+
+// Request interceptor to add auth token
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Usage examples
+const login = (usernameOrEmail, password) =>
+  api.post('/api/auth/login', { usernameOrEmail, password });
+
+const getItems = (params) =>
+  api.get('/api/items', { params });
+
+const createItem = (itemData, userId) =>
+  api.post('/api/items', itemData, {
+    headers: { 'X-User-Id': userId }
+  });
+
+const canRateBooking = (bookingId) =>
+  api.get(`/api/ratings/can-rate/${bookingId}`);
+
+const createRating = (ratingData) =>
+  api.post('/api/ratings', ratingData);
+
+const approveBooking = (bookingId, ownerId) =>
+  api.patch(`/api/bookings/${bookingId}/approve`, null, {
+    headers: { 'X-User-Id': ownerId }
+  });
+
+
+================================================================================
+APPENDIX B: SAMPLE FORM VALIDATION RULES
+================================================================================
+
+Registration Form:
+- username: 3-50 chars, alphanumeric, unique
+- name: 2-100 chars, required
+- email: valid email format, unique
+- password: min 8 chars, required
+- phoneNumber: optional, valid phone format
+
+Item Form:
+- name: required, max 200 chars
+- description: required, max 2000 chars
+- categoryId: required, must exist
+- deposit: number, min 0, max 10000
+- condition: one of [NEW, EXCELLENT, GOOD, FAIR, POOR]
+- images: array of valid URLs
+
+Booking Form:
+- itemId: required, must exist and be available
+- startDate: required, must be future date
+- endDate: required, must be after startDate
+- bookingNotes: max 500 chars
+- depositAmount: number, min 0
+- acceptTerms: must be true
+
+Rating Form:
+- rateeId: required, valid user ID
+- ratingType: required, valid enum
+- ratingValue: required, integer 1-5
+- comment: max 1000 chars
+- bookingId: required for user ratings
+- itemId: required for item ratings
+
+
+================================================================================
+APPENDIX C: WEBSOCKET/REAL-TIME FEATURES (Future Enhancement)
+================================================================================
+
+For future implementation, consider adding WebSocket support for:
+- Real-time notifications
+- Chat between borrowers and owners
+- Live booking status updates
+- Real-time availability updates
+
+Endpoint: ws://localhost:8080/ws
+Authentication: Send JWT token in connection handshake
+
+
+================================================================================
+APPENDIX D: MOBILE APP CONSIDERATIONS
+================================================================================
+
+This backend is fully compatible with mobile app development (React Native, 
+Flutter, etc.). Same API endpoints, authentication flow, and data models apply.
+
+Additional considerations for mobile:
+- Implement token refresh for longer sessions
+- Use secure storage for JWT tokens (KeyChain, KeyStore)
+- Handle offline mode gracefully
+- Optimize image uploads for mobile networks
+- Implement push notifications
+- Add location-based features (nearby items)
+- Use biometric authentication
+
+
+================================================================================
+END OF GUIDE
+================================================================================
+
+For questions or issues, refer to:
+- Backend source code: /src/main/java/com/locallend/locallend/
+- API documentation: Swagger UI at http://localhost:8080/swagger-ui.html (if enabled)
+- Backend logs: docker logs locallend-backend
+
+Last Updated: November 8, 2025
+Version: 1.0

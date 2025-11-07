@@ -11,7 +11,9 @@ services:
       - mongo_data:/data/db
 
   backend:
-    build: .
+    build:
+      context: .
+      dockerfile: dockerfile
     container_name: locallend-backend
     restart: always
     ports:
