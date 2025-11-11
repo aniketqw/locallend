@@ -1,0 +1,75 @@
+# Docker ignore file for LocalLend Frontend
+# This prevents unnecessary files from being copied to Docker build context
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Development files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs (these will be generated inside the container)
+dist/
+build/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional - comment out if you want docs in container)
+README.md
+README-LOCALLEND.md
+SETUP.md
+*.md
+
+# Development configuration
+.eslintrc*
+.prettierrc*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Docker files themselves (to avoid recursion)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Dependencies lock files (package-lock.json will be copied separately)
+package-lock.json
+yarn.lock

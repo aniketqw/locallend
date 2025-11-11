@@ -65,8 +65,17 @@ public class ItemController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "name") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
-        
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String ownerId) {
+
+        // If caller provided an ownerId, route to the owner-specific service
+        // This keeps backward compatibility for callers using the public
+        // /api/items endpoint with ?ownerId=<id>
+        if (ownerId != null && !ownerId.isBlank()) {
+            Page<ItemDTO> items = itemService.getItemsByOwner(ownerId, page, size);
+            return ResponseEntity.ok(items);
+        }
+
         Page<ItemDTO> items = itemService.getAvailableItems(page, size, sortBy, sortDir);
         return ResponseEntity.ok(items);
     }
