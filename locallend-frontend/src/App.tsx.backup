@@ -1,0 +1,2048 @@
+// App.tsx - Main application component for LocalLend
+import React, { useState } from 'react';
+import { useAuth } from './context/AuthContext';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { BrowsePage } from './pages/BrowsePage';
+import { DashboardPage } from './pages/DashboardPage';
+import { MyItemsPage } from './pages/MyItemsPage';
+import { MyBookingsPage } from './pages/MyBookingsPage';
+import { AddItemPage } from './pages/AddItemPage';
+import { SearchResultsPage } from './pages/SearchResultsPage';
+import { BookItemPage } from './pages/BookItemPage';
+
+type Page = 'home' | 'login' | 'register' | 'browse' | 'search' | 'dashboard' | 'my-items' | 'my-bookings' | 'add-item' | 'book-item';
+
+const App = () => {
+  const { user } = useAuth();
+  const [myItems, setMyItems] = React.useState<any[]>([]);
+  const [myBookings, setMyBookings] = React.useState<any[]>([]);
+  const [receivedBookings, setReceivedBookings] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        console.log('=== DASHBOARD DATA LOADING START ===');
+        console.log('Current user:', user);
+        console.log('Current user ID:', user?.id, 'Type:', typeof user?.id);
+        console.log('JWT Token exists:', !!localStorage.getItem('token'));
+        
+        // Load items I'm lending (owned by me)
+        const itemsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/items?ownerId=${user?.id}`, {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'X-User-Id': user?.id?.toString() || ''
+          }
+        });
+        if (itemsResponse.ok) {
+          const itemsData = await itemsResponse.json();
+          console.log('Items API response:', itemsData);
+          // Backend returns paginated data with 'content' array, not 'data' array
+          const allItems = itemsData.content || itemsData.data || [];
+          console.log('All items from API:', allItems);
+          console.log('Query URL was:', `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/items?ownerId=${user?.id}`);
+          
+          // Filter items to only show items owned by current user (frontend filtering as backup)
+          const myOwnedItems = allItems.filter((item: any) => {
+            console.log(`Comparing item.ownerId (${item.ownerId}) === user.id (${user?.id}):`, item.ownerId === user?.id);
+            return item.ownerId === user?.id || item.owner_id === user?.id;
+          });
+          console.log('Filtered myItems to:', myOwnedItems);
+          setMyItems(myOwnedItems);
+        } else {
+          console.log('Items API failed:', itemsResponse.status);
+        }
+
+        // Try to load my bookings (items I've borrowed) - gracefully handle server errors
+        try {
+          console.log('Fetching my bookings for user:', user?.id);
+          
+          // Try multiple possible endpoints for my bookings
+          let bookingsResponse;
+          let endpointUsed = '';
+          
+          // Try endpoint 1: /api/bookings/my-bookings (confirmed working by backend)
+          try {
+            endpointUsed = '/api/bookings/my-bookings';
+            bookingsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/my-bookings`, {
+              headers: { 
+                'Content-Type': 'application/json',
+                'X-User-Id': user?.id?.toString() || ''
+              }
+            });
+            
+            if (!bookingsResponse.ok && bookingsResponse.status === 404) {
+              // Try endpoint 2: /api/bookings/user/{userId} (alternative pattern)
+              endpointUsed = `/api/bookings/user/${user?.id}`;
+              bookingsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/user/${user?.id}`, {
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'X-User-Id': user?.id?.toString() || ''
+                }
+              });
+            }
+            
+            if (!bookingsResponse.ok && bookingsResponse.status === 404) {
+              // Try endpoint 3: /api/bookings (with query param)
+              endpointUsed = `/api/bookings?borrowerId=${user?.id}`;
+              bookingsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings?borrowerId=${user?.id}`, {
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'X-User-Id': user?.id?.toString() || ''
+                }
+              });
+            }
+          } catch (fetchError) {
+            console.log('Error trying booking endpoints:', fetchError);
+            setMyBookings([]);
+            return;
+          }
+          
+          console.log('Bookings response status:', bookingsResponse.status, 'from endpoint:', endpointUsed);
+          
+          if (bookingsResponse.ok) {
+            const bookingsData = await bookingsResponse.json();
+            console.log('✅ BOOKINGS SUCCESS - API response:', bookingsData);
+            console.log('Bookings response type:', typeof bookingsData, 'is array:', Array.isArray(bookingsData));
+            // Handle both paginated (content) and direct array responses
+            const bookings = bookingsData.content || bookingsData.data || bookingsData || [];
+            console.log('Final bookings array:', bookings, 'length:', bookings.length);
+            
+            // Let's also try to fetch ALL bookings to see what exists in the system
+            try {
+              const allBookingsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings`, {
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'X-User-Id': user?.id?.toString() || ''
+                }
+              });
+              if (allBookingsResponse.ok) {
+                const allBookingsData = await allBookingsResponse.json();
+                console.log('🔍 ALL BOOKINGS in system:', allBookingsData);
+              }
+            } catch (e) {
+              console.log('Could not fetch all bookings for debugging');
+            }
+            
+            setMyBookings(bookings);
+          } else {
+            const errorText = await bookingsResponse.text();
+            console.log('All booking endpoints failed. Last error:', bookingsResponse.status, 'response:', errorText);
+            setMyBookings([]);
+          }
+        } catch (error) {
+          console.log('Bookings endpoint failed:', error);
+          setMyBookings([]);
+        }
+
+        // Try to load bookings received (people wanting to borrow my items) - gracefully handle server errors
+        try {
+          console.log('Fetching received bookings for owner:', user?.id);
+          
+          // Try multiple possible endpoints for received bookings
+          let receivedResponse;
+          let ownerEndpointUsed = '';
+          
+          // Try endpoint 1: /api/bookings/my-owned (confirmed working by backend)
+          try {
+            ownerEndpointUsed = '/api/bookings/my-owned';
+            receivedResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/my-owned`, {
+              headers: { 
+                'Content-Type': 'application/json',
+                'X-User-Id': user?.id?.toString() || ''
+              }
+            });
+            
+            if (!receivedResponse.ok && receivedResponse.status === 404) {
+              // Try endpoint 2: /api/bookings/my-owned (alternative from earlier conversation)
+              ownerEndpointUsed = '/api/bookings/my-owned';
+              receivedResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/my-owned`, {
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'X-User-Id': user?.id?.toString() || ''
+                }
+              });
+            }
+            
+            if (!receivedResponse.ok && receivedResponse.status === 404) {
+              // Try endpoint 3: /api/bookings/owner/{userId}
+              ownerEndpointUsed = `/api/bookings/owner/${user?.id}`;
+              receivedResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/owner/${user?.id}`, {
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'X-User-Id': user?.id?.toString() || ''
+                }
+              });
+            }
+            
+            if (!receivedResponse.ok && receivedResponse.status === 404) {
+              // Try endpoint 4: /api/bookings (with query param)
+              ownerEndpointUsed = `/api/bookings?ownerId=${user?.id}`;
+              receivedResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings?ownerId=${user?.id}`, {
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'X-User-Id': user?.id?.toString() || ''
+                }
+              });
+            }
+          } catch (fetchError) {
+            console.log('Error trying owner booking endpoints:', fetchError);
+            setReceivedBookings([]);
+            return;
+          }
+          
+          console.log('Received bookings response status:', receivedResponse.status, 'from endpoint:', ownerEndpointUsed);
+          
+          if (receivedResponse.ok) {
+            const receivedData = await receivedResponse.json();
+            console.log('Received bookings API response:', receivedData);
+            console.log('Received bookings response type:', typeof receivedData, 'is array:', Array.isArray(receivedData));
+            // Handle both paginated (content) and direct array responses
+            const bookings = receivedData.content || receivedData.data || receivedData || [];
+            console.log('Setting receivedBookings to:', bookings, 'length:', bookings.length);
+            setReceivedBookings(bookings);
+          } else {
+            const errorText = await receivedResponse.text();
+            console.log('All owner booking endpoints failed. Last error:', receivedResponse.status, 'response:', errorText);
+            setReceivedBookings([]);
+          }
+        } catch (error) {
+          console.log('Received bookings endpoint failed:', error);
+          setReceivedBookings([]);
+        }
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        // Set empty arrays if there's a general error
+        setMyItems([]);
+        setMyBookings([]);
+        setReceivedBookings([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  // Debug: Log current state values
+  console.log('Dashboard render - myItems:', myItems, 'myBookings:', myBookings, 'receivedBookings:', receivedBookings);
+
+  return (
+    <div style={{ 
+      fontFamily: 'Roboto, Arial, sans-serif', 
+      margin: '0',
+      padding: '0',
+      backgroundColor: '#f5f5f5',
+      color: '#213547',
+      minHeight: '100vh'
+    }}>
+      {/* Navigation Bar */}
+      <nav style={{
+        backgroundColor: '#1976d2',
+        color: 'white',
+        padding: '12px 0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        marginBottom: '20px'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '0 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+            <button
+              onClick={onBack}
+              style={{ 
+                color: 'white', 
+                textDecoration: 'none', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                fontSize: '1.5rem',
+                fontWeight: 'bold'
+              }}
+            >
+              LocalLend
+            </button>
+          </div>
+          
+          <span style={{ 
+            color: 'white', 
+            fontSize: '14px',
+            padding: '8px 12px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '4px'
+          }}>
+            Welcome, {user?.name}!
+          </span>
+        </div>
+      </nav>
+
+      {/* Dashboard Content */}
+      <div style={{ padding: '0 20px', maxWidth: '1200px', margin: '0 auto' }}>
+        <h1 style={{ marginBottom: '30px', color: '#1976d2' }}>Dashboard</h1>
+        
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <p>Loading your dashboard...</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
+            
+            {/* My Items Section */}
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '20px', 
+              borderRadius: '8px', 
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+            }}>
+              <h2 style={{ color: '#1976d2', marginBottom: '15px' }}>My Items ({myItems.length})</h2>
+              <p style={{ color: '#666', marginBottom: '15px', fontSize: '14px' }}>Items you're lending to others</p>
+              
+              {myItems.length === 0 ? (
+                <p style={{ color: '#888', fontStyle: 'italic' }}>No items listed yet. Start lending!</p>
+              ) : (
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {myItems.map((item) => (
+                    <div key={item.id} style={{ 
+                      border: '1px solid #e0e0e0', 
+                      borderRadius: '4px', 
+                      padding: '12px', 
+                      marginBottom: '10px',
+                      backgroundColor: '#fafafa'
+                    }}>
+                      <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{item.name || item.title}</h4>
+                      <p style={{ margin: '0 0 8px 0', color: '#666', fontSize: '14px' }}>{item.description}</p>
+                      <div style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
+                        <span style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          backgroundColor: item.status === 'AVAILABLE' ? '#4caf50' : '#ff9800',
+                          color: 'white'
+                        }}>
+                          {item.status}
+                        </span>
+                        <span style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          backgroundColor: '#2196f3',
+                          color: 'white'
+                        }}>
+                          {item.condition}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* My Bookings Section */}
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '20px', 
+              borderRadius: '8px', 
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+            }}>
+              <h2 style={{ color: '#1976d2', marginBottom: '15px' }}>My Bookings ({myBookings.length})</h2>
+              <p style={{ color: '#666', marginBottom: '15px', fontSize: '14px' }}>Items you've borrowed from others</p>
+              
+              {myBookings.length === 0 ? (
+                <p style={{ color: '#888', fontStyle: 'italic' }}>No active bookings. Browse items to borrow!</p>
+              ) : (
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {myBookings.map((booking) => (
+                    <div key={booking.id} style={{ 
+                      border: '1px solid #e0e0e0', 
+                      borderRadius: '4px', 
+                      padding: '12px', 
+                      marginBottom: '10px',
+                      backgroundColor: '#fafafa'
+                    }}>
+                      <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{booking.itemTitle}</h4>
+                      <p style={{ margin: '0 0 8px 0', color: '#666', fontSize: '14px' }}>
+                        {booking.startDate} to {booking.endDate}
+                      </p>
+                      <span style={{ 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        backgroundColor: booking.status === 'APPROVED' ? '#4caf50' : '#ff9800',
+                        color: 'white',
+                        fontSize: '12px'
+                      }}>
+                        {booking.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Booking Requests Section */}
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '20px', 
+              borderRadius: '8px', 
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              gridColumn: 'span 2'
+            }}>
+              <h2 style={{ color: '#1976d2', marginBottom: '15px' }}>Booking Requests ({receivedBookings.length})</h2>
+              <p style={{ color: '#666', marginBottom: '15px', fontSize: '14px' }}>People wanting to borrow your items</p>
+              
+              {receivedBookings.length === 0 ? (
+                <p style={{ color: '#888', fontStyle: 'italic' }}>No pending booking requests.</p>
+              ) : (
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {receivedBookings.map((booking) => (
+                    <div key={booking.id} style={{ 
+                      border: '1px solid #e0e0e0', 
+                      borderRadius: '4px', 
+                      padding: '15px', 
+                      marginBottom: '10px',
+                      backgroundColor: '#fafafa',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{booking.itemTitle}</h4>
+                        <p style={{ margin: '0 0 5px 0', color: '#666', fontSize: '14px' }}>
+                          Requested by: {booking.borrowerName}
+                        </p>
+                        <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>
+                          From: {booking.startDate}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#4caf50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}>
+                          Approve
+                        </button>
+                        <button style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}>
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+        
+        {/* Quick Actions */}
+        <div style={{ 
+          marginTop: '30px',
+          display: 'flex',
+          gap: '15px',
+          flexWrap: 'wrap'
+        }}>
+          <button 
+            onClick={onAddItem}
+            style={{
+            padding: '12px 24px',
+            backgroundColor: '#4caf50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: 'bold'
+          }}>
+            + Add New Item
+          </button>
+          
+          <button style={{
+            padding: '12px 24px',
+            backgroundColor: '#2196f3',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}>
+            Browse Items
+          </button>
+          
+          <button onClick={onBack} style={{
+            padding: '12px 24px',
+            backgroundColor: '#757575',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}>
+            Back to Home
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MyItemsPage: React.FC<PageProps> = ({ onBack }) => (
+  <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <h1>My Items</h1>
+    <p>Here you can manage the items you're lending out to others.</p>
+    <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+      Back to Home
+    </button>
+  </div>
+);
+
+const MyBookingsPage: React.FC<PageProps> = ({ onBack }) => (
+  <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <h1>My Bookings</h1>
+    <p>Here you can see all the items you've booked from other users.</p>
+    <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+      Back to Home
+    </button>
+  </div>
+);
+
+const AddItemPage: React.FC<PageProps> = ({ onBack }) => {
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [categories, setCategories] = React.useState<any[]>([]);
+  const [formData, setFormData] = React.useState({
+    title: '',
+    description: '',
+    category: '',
+    condition: 'GOOD',
+    pricePerDay: '',
+    availableFrom: '',
+    availableTo: '',
+    pickupLocation: '',
+    specialInstructions: ''
+  });
+
+  // Load categories from backend on component mount
+  React.useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/categories`);
+        if (response.ok) {
+          const categoryResponse = await response.json();
+          console.log('Categories loaded:', categoryResponse);
+          // Extract the data array from the response
+          const categoryData = categoryResponse.data || categoryResponse;
+          setCategories(categoryData);
+        } else {
+          console.error('Failed to load categories');
+          // Fallback categories if API fails
+          setCategories([
+            { id: '1', name: 'Electronics' },
+            { id: '2', name: 'Tools' },
+            { id: '3', name: 'Sports' },
+            { id: '4', name: 'Books' },
+            { id: '5', name: 'Furniture' },
+            { id: '6', name: 'Vehicles' },
+            { id: '7', name: 'Appliances' },
+            { id: '8', name: 'Other' }
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        // Fallback categories if API fails
+        setCategories([
+          { id: '1', name: 'Electronics' },
+          { id: '2', name: 'Tools' },
+          { id: '3', name: 'Sports' },
+          { id: '4', name: 'Books' },
+          { id: '5', name: 'Furniture' },
+          { id: '6', name: 'Vehicles' },
+          { id: '7', name: 'Appliances' },
+          { id: '8', name: 'Other' }
+        ]);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  const conditions = [
+    { value: 'EXCELLENT', label: 'Excellent - Like new' },
+    { value: 'GOOD', label: 'Good - Minor wear' },
+    { value: 'FAIR', label: 'Fair - Noticeable wear' },
+    { value: 'POOR', label: 'Poor - Significant wear' }
+  ];
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      alert('You must be logged in to add items');
+      return;
+    }
+
+    // Client-side validation
+    if (formData.title.length < 3 || formData.title.length > 100) {
+      alert('Item title must be between 3 and 100 characters long');
+      return;
+    }
+
+    if (formData.description.length < 10 || formData.description.length > 500) {
+      alert('Item description must be between 10 and 500 characters long');
+      return;
+    }
+
+    if (!formData.category) {
+      alert('Please select a category');
+      return;
+    }
+
+    if (formData.pricePerDay && parseFloat(formData.pricePerDay) < 0) {
+      alert('Price per day must be a positive number');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Prepare item data matching the backend CreateItemRequest interface
+      const itemData = {
+        name: formData.title, // Backend expects 'name', not 'title'
+        description: formData.description,
+        categoryId: formData.category, // This is now the actual category ID from the backend
+        condition: formData.condition,
+        deposit: formData.pricePerDay ? parseFloat(formData.pricePerDay) : undefined,
+        images: [] // No image upload implemented yet
+      };
+
+      console.log('Submitting item data:', itemData);
+
+      // Use the itemService to create the item (it handles auth headers properly)
+      const newItem = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'X-User-Id': user.id.toString()
+        },
+        body: JSON.stringify(itemData)
+      });
+
+      if (newItem.ok) {
+        const createdItem = await newItem.json();
+        console.log('Item created successfully:', createdItem);
+        alert(`Item "${createdItem.name || formData.title}" added successfully!`);
+        
+        // Reset form
+        setFormData({
+          title: '',
+          description: '',
+          category: '',
+          condition: 'GOOD',
+          pricePerDay: '',
+          availableFrom: '',
+          availableTo: '',
+          pickupLocation: '',
+          specialInstructions: ''
+        });
+        
+        onBack(); // Go back to dashboard/home
+      } else {
+        const errorResponse = await newItem.text();
+        console.error('Server error response:', errorResponse);
+        
+        let errorMessage = 'Failed to add item';
+        try {
+          const errorData = JSON.parse(errorResponse);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = errorResponse || errorMessage;
+        }
+        
+        throw new Error(`Server error (${newItem.status}): ${errorMessage}`);
+      }
+    } catch (error: any) {
+      console.error('Error adding item:', error);
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        alert('Network error: Cannot connect to backend server. Please ensure the backend is running on http://localhost:8080');
+      } else {
+        alert(`Error adding item: ${error.message}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ 
+      fontFamily: 'Roboto, Arial, sans-serif', 
+      margin: '0',
+      padding: '0',
+      backgroundColor: '#f5f5f5',
+      color: '#213547',
+      minHeight: '100vh'
+    }}>
+      {/* Navigation Bar */}
+      <nav style={{
+        backgroundColor: '#1976d2',
+        color: 'white',
+        padding: '12px 0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        marginBottom: '20px'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '0 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+            <button
+              onClick={onBack}
+              style={{ 
+                color: 'white', 
+                textDecoration: 'none', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                fontSize: '1.5rem',
+                fontWeight: 'bold'
+              }}
+            >
+              LocalLend
+            </button>
+          </div>
+          
+          <span style={{ 
+            color: 'white', 
+            fontSize: '14px',
+            padding: '8px 12px',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '4px'
+          }}>
+            Welcome, {user?.name}!
+          </span>
+        </div>
+      </nav>
+
+      {/* Add Item Form */}
+      <div style={{ padding: '0 20px', maxWidth: '800px', margin: '0 auto' }}>
+        <h1 style={{ marginBottom: '10px', color: '#1976d2' }}>Add New Item</h1>
+        <p style={{ color: '#666', marginBottom: '30px' }}>
+          List an item you'd like to lend to others in your community.
+        </p>
+
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '30px', 
+          borderRadius: '8px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+        }}>
+          <form onSubmit={handleSubmit}>
+            {/* Title */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Item Title * (3-100 characters)
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                required
+                minLength={3}
+                maxLength={100}
+                placeholder="e.g., Canon DSLR Camera, Mountain Bike, Power Drill"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              {formData.title.length > 0 && formData.title.length < 3 && (
+                <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
+                  Title must be at least 3 characters long
+                </div>
+              )}
+              {formData.title.length > 100 && (
+                <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
+                  Title must be no more than 100 characters long
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Description * (10-500 characters)
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                required
+                minLength={10}
+                maxLength={500}
+                rows={4}
+                placeholder="Describe your item in detail - condition, features, what's included..."
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box',
+                  resize: 'vertical'
+                }}
+              />
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                {formData.description.length}/500 characters
+              </div>
+              {formData.description.length > 0 && formData.description.length < 10 && (
+                <div style={{ color: 'red', fontSize: '12px', marginTop: '4px' }}>
+                  Description must be at least 10 characters long
+                </div>
+              )}
+            </div>
+
+            {/* Category and Condition Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                  Category *
+                </label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">Select a category</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                  Condition *
+                </label>
+                <select
+                  name="condition"
+                  value={formData.condition}
+                  onChange={handleChange}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {conditions.map(condition => (
+                    <option key={condition.value} value={condition.value}>
+                      {condition.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Price */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Price per Day ($) *
+              </label>
+              <input
+                type="number"
+                name="pricePerDay"
+                value={formData.pricePerDay}
+                onChange={handleChange}
+                required
+                min="0"
+                step="0.01"
+                placeholder="25.00"
+                style={{
+                  width: '200px',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Availability Dates */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                  Available From
+                </label>
+                <input
+                  type="date"
+                  name="availableFrom"
+                  value={formData.availableFrom}
+                  onChange={handleChange}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                  Available Until
+                </label>
+                <input
+                  type="date"
+                  name="availableTo"
+                  value={formData.availableTo}
+                  onChange={handleChange}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Pickup Location */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Pickup Location
+              </label>
+              <input
+                type="text"
+                name="pickupLocation"
+                value={formData.pickupLocation}
+                onChange={handleChange}
+                placeholder="e.g., Downtown area, My office, Near Metro Station"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Special Instructions */}
+            <div style={{ marginBottom: '30px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Special Instructions
+              </label>
+              <textarea
+                name="specialInstructions"
+                value={formData.specialInstructions}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Any special care instructions, usage notes, or requirements..."
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            {/* Submit Buttons */}
+            <div style={{ display: 'flex', gap: '15px' }}>
+              <button
+                type="submit"
+                disabled={isLoading}
+                style={{
+                  padding: '12px 30px',
+                  backgroundColor: isLoading ? '#ccc' : '#4caf50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {isLoading ? 'Adding Item...' : 'Add Item'}
+              </button>
+              
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={isLoading}
+                style={{
+                  padding: '12px 30px',
+                  backgroundColor: '#757575',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SearchResultsPage: React.FC<PageProps & { searchQuery: string; onSearchQueryChange: (query: string) => void; onBookItem: (itemId: string, itemTitle: string) => void }> = ({ onBack, searchQuery, onSearchQueryChange, onBookItem }) => {
+  console.log('🔍🔍🔍 SearchResultsPage rendered with onBookItem:', onBookItem);
+  console.log('🔍🔍🔍 SearchResultsPage component loaded successfully');
+  
+  React.useEffect(() => {
+    console.log('🔍🔍🔍 SearchResultsPage useEffect - this should show when page loads');
+  }, []);
+  const { user } = useAuth();
+  const [searchResults, setSearchResults] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [selectedCategory, setSelectedCategory] = React.useState('');
+
+  React.useEffect(() => {
+    const performSearch = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Search using the backend API
+        const queryParams = new URLSearchParams();
+        if (searchQuery) queryParams.append('name', searchQuery); // Backend expects 'name' parameter for search
+        if (selectedCategory) queryParams.append('categoryId', selectedCategory);
+        queryParams.append('page', '0');
+        queryParams.append('size', '20'); // Get more results for search
+        
+        console.log('Performing search with query:', searchQuery, 'category:', selectedCategory);
+        
+        const searchResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/items?${queryParams.toString()}`, {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'X-User-Id': user?.id?.toString() || ''
+          }
+        });
+        
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          console.log('Search API response:', searchData);
+          // Handle paginated response structure
+          const results = searchData.content || searchData.data || [];
+          console.log('Setting search results to:', results);
+          setSearchResults(results);
+        } else {
+          console.log('Search API failed:', searchResponse.status);
+          setSearchResults([]);
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+        // Set empty results on error
+        setSearchResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    performSearch();
+  }, [searchQuery, selectedCategory]);
+
+  const handleNewSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Search will be triggered by useEffect when searchQuery changes
+  };
+
+
+
+  return (
+    <div style={{ 
+      fontFamily: 'Roboto, Arial, sans-serif', 
+      margin: '0',
+      padding: '0',
+      backgroundColor: '#f5f5f5',
+      color: '#213547',
+      minHeight: '100vh'
+    }}>
+      {/* Navigation Bar */}
+      <nav style={{
+        backgroundColor: '#1976d2',
+        color: 'white',
+        padding: '12px 0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        marginBottom: '20px'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '0 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '20px'
+        }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+            <button
+              onClick={onBack}
+              style={{ 
+                color: 'white', 
+                textDecoration: 'none', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                fontSize: '1.5rem',
+                fontWeight: 'bold'
+              }}
+            >
+              LocalLend
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          <form onSubmit={handleNewSearch} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flex: 1,
+            maxWidth: '500px'
+          }}>
+            <input
+              type="search"
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            />
+            <select 
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              style={{
+                padding: '8px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            >
+              <option value="">All Categories</option>
+              <option value="electronics">Electronics</option>
+              <option value="tools">Tools</option>
+              <option value="sports">Sports</option>
+              <option value="books">Books</option>
+            </select>
+            <button type="submit" style={{
+              padding: '8px 16px',
+              backgroundColor: '#1565c0',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}>
+              Search
+            </button>
+          </form>
+          
+          {user && (
+            <span style={{ 
+              color: 'white', 
+              fontSize: '14px',
+              padding: '8px 12px',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '4px'
+            }}>
+              Welcome, {user.name}!
+            </span>
+          )}
+        </div>
+      </nav>
+
+      {/* Search Results Content */}
+      <div style={{ padding: '0 20px', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <h1 style={{ color: '#1976d2', marginBottom: '10px' }}>
+            Search Results {searchQuery && `for "${searchQuery}"`}
+          </h1>
+          {selectedCategory && (
+            <p style={{ color: '#666', margin: '0' }}>
+              Category: {selectedCategory}
+            </p>
+          )}
+        </div>
+        
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <p>Searching for items...</p>
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: '20px', color: '#666' }}>
+              Found {searchResults.length} item{searchResults.length !== 1 ? 's' : ''}
+            </div>
+            
+            {searchResults.length === 0 ? (
+              <div style={{ 
+                backgroundColor: 'white', 
+                padding: '40px', 
+                borderRadius: '8px', 
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                textAlign: 'center'
+              }}>
+                <h3 style={{ color: '#666', marginBottom: '10px' }}>No items found</h3>
+                <p style={{ color: '#888' }}>
+                  Try adjusting your search terms or browse all available items.
+                </p>
+                <button 
+                  onClick={() => onSearchQueryChange('')}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#1976d2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginTop: '15px'
+                  }}
+                >
+                  Clear Search
+                </button>
+              </div>
+            ) : (
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+                gap: '20px' 
+              }}>
+                {searchResults.map((item) => (
+                  <div key={item.id} style={{ 
+                    backgroundColor: 'white', 
+                    padding: '20px', 
+                    borderRadius: '8px', 
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: 'fit-content'
+                  }}>
+                    {/* Item Image Placeholder */}
+                    <div style={{
+                      width: '100%',
+                      height: '200px',
+                      backgroundColor: '#e0e0e0',
+                      borderRadius: '4px',
+                      marginBottom: '15px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#666'
+                    }}>
+                      {item.imageUrl || item.images?.[0] ? (
+                        <img src={item.imageUrl || item.images?.[0]} alt={item.name || item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                      ) : (
+                        <span>No Image</span>
+                      )}
+                    </div>
+                    
+                    <h3 style={{ margin: '0 0 8px 0', color: '#333' }}>{item.name || item.title}</h3>
+                    <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px', flexGrow: 1 }}>{item.description}</p>
+                    
+                    <div style={{ marginBottom: '10px', fontSize: '14px' }}>
+                      <span style={{ color: '#666' }}>Owner: </span>
+                      <span style={{ color: '#333', fontWeight: 'bold' }}>{item.owner?.name || item.ownerName || 'Unknown'}</span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', fontSize: '12px' }}>
+                      <span style={{ 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        backgroundColor: '#4caf50',
+                        color: 'white'
+                      }}>
+                        ${item.pricePerDay}/day
+                      </span>
+                      <span style={{ 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        backgroundColor: '#2196f3',
+                        color: 'white'
+                      }}>
+                        {item.condition}
+                      </span>
+                      <span style={{ 
+                        padding: '2px 8px', 
+                        borderRadius: '12px', 
+                        backgroundColor: '#ff9800',
+                        color: 'white'
+                      }}>
+                        {item.category}
+                      </span>
+                    </div>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔥🔥🔥 BUTTON CLICKED! Item:', item);
+                        console.log('🔥🔥🔥 onBookItem function:', onBookItem);
+                        console.log('🔥🔥🔥 item.id:', item.id, 'item.name:', item.name);
+                        try {
+                          onBookItem(item.id, item.name || item.title);
+                        } catch (error) {
+                          console.error('🔥🔥🔥 Error calling onBookItem:', error);
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        backgroundColor: '#1976d2',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Book This Item
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        
+        <div style={{ marginTop: '30px', textAlign: 'center' }}>
+          <button onClick={onBack} style={{
+            padding: '12px 24px',
+            backgroundColor: '#757575',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}>
+            Back to Home
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+type Page = 'home' | 'login' | 'register' | 'browse' | 'search' | 'dashboard' | 'my-items' | 'my-bookings' | 'add-item' | 'book-item';
+
+const BookItemPage: React.FC<PageProps & { item: any }> = ({ onBack, item }) => {
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [formData, setFormData] = React.useState({
+    startDate: '',
+    endDate: '',
+    bookingNotes: '',
+    depositAmount: 0,
+    acceptTerms: false
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.acceptTerms) {
+      alert('Please accept the terms and conditions');
+      return;
+    }
+
+    if (new Date(formData.startDate) <= new Date()) {
+      alert('Start date must be in the future');
+      return;
+    }
+
+    if (new Date(formData.endDate) <= new Date(formData.startDate)) {
+      alert('End date must be after start date');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      console.log('🚀 Creating booking for item:', item.id, 'user:', user?.id);
+      
+      const startDateTime = new Date(formData.startDate + 'T10:00:00');
+      const endDateTime = new Date(formData.endDate + 'T18:00:00');
+      
+      const bookingData = {
+        itemId: item.id,
+        startDate: startDateTime.toISOString(),
+        endDate: endDateTime.toISOString(),
+        bookingNotes: formData.bookingNotes || '',
+        depositAmount: parseFloat(formData.depositAmount.toString()) || 0,
+        requestedDurationDays: Math.ceil((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60 * 24)),
+        acceptTerms: formData.acceptTerms
+      };
+      
+      console.log('📝 Booking data to send:', bookingData);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user?.id?.toString() || ''
+        },
+        body: JSON.stringify(bookingData)
+      });
+      
+      console.log('📡 Booking response status:', response.status);
+      
+      if (response.ok) {
+        const bookingResponse = await response.json();
+        console.log('✅ Booking created successfully:', bookingResponse);
+        alert(`✅ Booking request sent for "${item.name}"! You can track it in your dashboard.`);
+        onBack(); // Navigate back to previous page
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Booking failed:', response.status, errorText);
+        
+        let errorMessage;
+        switch (response.status) {
+          case 400:
+            errorMessage = 'Invalid booking data. Please check your information and try again.';
+            break;
+          case 401:
+            errorMessage = 'Not authenticated. Please log in again.';
+            break;
+          case 403:
+            errorMessage = 'Not authorized to create booking.';
+            break;
+          case 404:
+            errorMessage = 'Booking endpoint not found. Backend may not be running properly.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          default:
+            errorMessage = `Server returned ${response.status}: ${errorText}`;
+        }
+        
+        alert(`❌ Failed to create booking: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('💥 Error creating booking:', error);
+      alert(`❌ Network error creating booking: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!item) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <h2>Item not found</h2>
+        <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          Back
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '20px' }}>
+        <button onClick={onBack} style={{ padding: '8px 16px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          ← Back
+        </button>
+      </div>
+
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
+        <h2 style={{ color: '#1976d2', marginBottom: '10px' }}>Request to Book Item</h2>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+          {item.images?.[0] && (
+            <img src={item.images[0]} alt={item.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px' }} />
+          )}
+          <div>
+            <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>{item.name}</h3>
+            <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>{item.description}</p>
+            <p style={{ margin: '5px 0 0 0', color: '#1976d2', fontSize: '14px', fontWeight: 'bold' }}>Owner: {item.ownerName}</p>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+            Start Date *
+          </label>
+          <input
+            type="date"
+            name="startDate"
+            value={formData.startDate}
+            onChange={handleChange}
+            required
+            min={new Date().toISOString().split('T')[0]}
+            style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '16px' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+            End Date *
+          </label>
+          <input
+            type="date"
+            name="endDate"
+            value={formData.endDate}
+            onChange={handleChange}
+            required
+            min={formData.startDate || new Date().toISOString().split('T')[0]}
+            style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '16px' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+            Deposit Amount (Optional)
+          </label>
+          <input
+            type="number"
+            name="depositAmount"
+            value={formData.depositAmount}
+            onChange={handleChange}
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '16px' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+            Notes to Owner (Optional)
+          </label>
+          <textarea
+            name="bookingNotes"
+            value={formData.bookingNotes}
+            onChange={handleChange}
+            rows={4}
+            placeholder="Any special requests or information for the owner..."
+            style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '16px', resize: 'vertical' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              name="acceptTerms"
+              checked={formData.acceptTerms}
+              onChange={handleChange}
+              required
+              style={{ marginRight: '8px' }}
+            />
+            <span style={{ color: '#333' }}>I accept the terms and conditions for booking this item *</span>
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{ 
+              flex: 1,
+              padding: '12px',
+              backgroundColor: '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading || !formData.acceptTerms}
+            style={{
+              flex: 2,
+              padding: '12px',
+              backgroundColor: isLoading || !formData.acceptTerms ? '#ccc' : '#1976d2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isLoading || !formData.acceptTerms ? 'not-allowed' : 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            {isLoading ? 'Creating Booking...' : 'Send Booking Request'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const App = () => {
+  const { user, isAuthenticated, logout } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  const handleLogin = () => {
+    setCurrentPage('login');
+  };
+
+  const handleRegister = () => {
+    setCurrentPage('register');
+  };
+
+  const handleBrowse = () => {
+    setCurrentPage('browse');
+  };
+
+  const handleDashboard = () => {
+    setCurrentPage('dashboard');
+  };
+
+  const handleMyItems = () => {
+    setCurrentPage('my-items');
+  };
+
+  const handleMyBookings = () => {
+    setCurrentPage('my-bookings');
+  };
+
+  const handleAddItem = () => {
+    setCurrentPage('add-item');
+  };
+
+  const handleBookItem = (itemId: string, itemTitle: string) => {
+    console.log('🎯🎯🎯 NEW HANDLE BOOK ITEM CALLED - Item ID:', itemId, 'Item Title:', itemTitle);
+    console.log('🎯🎯🎯 User:', user);
+    
+    if (!user) {
+      console.log('🎯🎯🎯 No user - showing login alert');
+      alert('Please log in to book items');
+      return;
+    }
+    
+    console.log('🎯🎯🎯 Setting selected item and navigating to book-item page');
+    // Find the full item object from search results or fetch it
+    setSelectedItem({ id: itemId, name: itemTitle });
+    setCurrentPage('book-item');
+  };
+
+  const handleLogout = () => {
+    logout();
+    setCurrentPage('home');
+    console.log('User logged out');
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setCurrentPage('search');
+    }
+  };
+
+  const navigateToHome = () => {
+    setCurrentPage('home');
+  };
+
+  // Render different pages based on current page state
+  if (currentPage === 'login') {
+    return <LoginPage onBack={navigateToHome} />;
+  }
+
+  if (currentPage === 'register') {
+    return <RegisterPage onBack={navigateToHome} />;
+  }
+
+  if (currentPage === 'browse') {
+    return <BrowsePage onBack={navigateToHome} />;
+  }
+
+  if (currentPage === 'search') {
+    return <SearchResultsPage onBack={navigateToHome} searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} onBookItem={handleBookItem} />;
+  }
+
+  if (currentPage === 'dashboard') {
+    return <DashboardPage onBack={navigateToHome} onAddItem={handleAddItem} />;
+  }
+
+  if (currentPage === 'my-items') {
+    return <MyItemsPage onBack={navigateToHome} />;
+  }
+
+  if (currentPage === 'my-bookings') {
+    return <MyBookingsPage onBack={navigateToHome} />;
+  }
+
+  if (currentPage === 'add-item') {
+    return <AddItemPage onBack={navigateToHome} />;
+  }
+
+  if (currentPage === 'book-item') {
+    return <BookItemPage onBack={() => setCurrentPage('search')} item={selectedItem} />;
+  }
+
+  return (
+    <div style={{ 
+      fontFamily: 'Roboto, Arial, sans-serif', 
+      margin: '0',
+      padding: '0',
+      backgroundColor: '#ffffff',
+      color: '#213547',
+      minHeight: '100vh'
+    }}>
+      {/* Navigation Bar */}
+      <nav style={{
+        backgroundColor: '#1976d2',
+        color: 'white',
+        padding: '12px 0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        marginBottom: '0'
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '0 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '20px'
+        }}>
+          {/* Brand Logo */}
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+            <button
+              onClick={navigateToHome}
+              style={{ 
+                color: 'white', 
+                textDecoration: 'none', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                fontSize: '1.5rem',
+                fontWeight: 'bold'
+              }}
+            >
+              LocalLend
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          <form onSubmit={handleSearch} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flex: 1,
+            maxWidth: '500px'
+          }}>
+            <input
+              type="search"
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            />
+            <select style={{
+              padding: '8px',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}>
+              <option value="">All Categories</option>
+              <option value="electronics">Electronics</option>
+              <option value="tools">Tools</option>
+              <option value="sports">Sports</option>
+              <option value="books">Books</option>
+            </select>
+            <button type="submit" style={{
+              padding: '8px 16px',
+              backgroundColor: '#1565c0',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}>
+              Search
+            </button>
+          </form>
+
+          {/* Navigation Menu */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isAuthenticated && user ? (
+              <>
+                <span style={{ 
+                  color: 'white', 
+                  fontSize: '14px',
+                  padding: '8px 12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '4px'
+                }}>
+                  Welcome, {user.name}!
+                </span>
+                <button onClick={handleDashboard} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Dashboard
+                </button>
+                <button onClick={handleMyItems} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  My Items
+                </button>
+                <button onClick={handleMyBookings} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Bookings
+                </button>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#d32f2f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={handleBrowse}
+                  style={{ 
+                    color: 'white', 
+                    textDecoration: 'none', 
+                    padding: '8px 12px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Browse Items
+                </button>
+                <button
+                  onClick={handleLogin}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'transparent',
+                    color: 'white',
+                    border: '1px solid white',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Login
+                </button>
+                <button
+                  onClick={handleRegister}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#4caf50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Register
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div style={{ padding: '20px' }}>
+      <header style={{ 
+        backgroundColor: '#1976d2', 
+        color: 'white', 
+        padding: '30px',
+        borderRadius: '12px',
+        marginBottom: '30px',
+        textAlign: 'center',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+      }}>
+        <h1 style={{ margin: '0 0 10px 0', fontSize: '2.5rem' }}>LocalLend - Peer-to-Peer Item Sharing</h1>
+        <p style={{ margin: '0', fontSize: '1.2rem', opacity: '0.9' }}>A community platform for borrowing and lending items</p>
+      </header>
+
+      <main style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <section style={{ 
+          marginBottom: '40px', 
+          backgroundColor: '#ffffff',
+          padding: '30px',
+          borderRadius: '12px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ color: '#1976d2', marginBottom: '20px' }}>Welcome to LocalLend</h2>
+          <p style={{ fontSize: '1.1rem', lineHeight: '1.6', color: '#424242' }}>
+            LocalLend is a peer-to-peer item sharing platform where users can:
+          </p>
+          <ul style={{ fontSize: '1rem', lineHeight: '1.8', color: '#424242' }}>
+            <li>List items they own for others to borrow</li>
+            <li>Browse and search items available in their community</li>
+            <li>Request to borrow items from other users</li>
+            <li>Manage bookings (approve, track, complete)</li>
+            <li>Rate users and items after completed transactions</li>
+            <li>Build trust scores through positive interactions</li>
+          </ul>
+        </section>
+
+        <section style={{ 
+          backgroundColor: '#f8f9fa', 
+          padding: '30px', 
+          borderRadius: '12px',
+          marginBottom: '30px',
+          border: '1px solid #e9ecef'
+        }}>
+          <h3 style={{ color: '#1976d2', marginBottom: '25px' }}>Application Features (In Development)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '20px', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: '1px solid #e9ecef'
+            }}>
+              <h4 style={{ color: '#333', marginBottom: '10px' }}>🔐 Authentication</h4>
+              <p style={{ color: '#666', margin: '0' }}>User registration, login, JWT token management</p>
+            </div>
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '20px', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: '1px solid #e9ecef'
+            }}>
+              <h4 style={{ color: '#333', marginBottom: '10px' }}>📱 Item Management</h4>
+              <p style={{ color: '#666', margin: '0' }}>Create, edit, browse items with categories and conditions</p>
+            </div>
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '20px', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: '1px solid #e9ecef'
+            }}>
+              <h4 style={{ color: '#333', marginBottom: '10px' }}>📅 Booking System</h4>
+              <p style={{ color: '#666', margin: '0' }}>Request, approve, track borrowing periods</p>
+            </div>
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '20px', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: '1px solid #e9ecef'
+            }}>
+              <h4 style={{ color: '#333', marginBottom: '10px' }}>⭐ Rating System</h4>
+              <p style={{ color: '#666', margin: '0' }}>Rate users and items to build community trust</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+        <footer style={{ 
+          marginTop: '50px', 
+          textAlign: 'center', 
+          color: '#666',
+          borderTop: '2px solid #e9ecef',
+          paddingTop: '30px',
+          backgroundColor: '#f8f9fa',
+          marginLeft: '-20px',
+          marginRight: '-20px',
+          padding: '30px 20px'
+        }}>
+          <p style={{ margin: '10px 0', fontSize: '1rem' }}>LocalLend Frontend - Built with React + TypeScript + Vite</p>
+          <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Backend API: http://localhost:8080</p>
+          <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Frontend: http://localhost:5173</p>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;

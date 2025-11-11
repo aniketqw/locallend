@@ -220,31 +220,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getOverdueBookings());
     }
 
-    /**
-     * Get bookings for a specific user as borrower (frontend compatibility endpoint)
-     */
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getBookingsForUser(@PathVariable String userId) {
-        try {
-            List<BookingResponseDto> bookings = bookingService.getBookingsForBorrower(userId);
-            return ResponseEntity.ok(bookings);
-        } catch (Exception e) {
-            return error(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching user bookings", e.getMessage(), "USER_BOOKINGS_ERROR");
-        }
-    }
-
-    /**
-     * Get bookings for a specific user as owner (frontend compatibility endpoint)
-     */
-    @GetMapping("/owner/{ownerId}")
-    public ResponseEntity<?> getBookingsForOwner(@PathVariable String ownerId) {
-        try {
-            List<BookingResponseDto> bookings = bookingService.getBookingsForOwner(ownerId);
-            return ResponseEntity.ok(bookings);
-        } catch (Exception e) {
-            return error(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching owner bookings", e.getMessage(), "OWNER_BOOKINGS_ERROR");
-        }
-    }
+    
 
     @GetMapping("/by-status")
     public ResponseEntity<?> bookingsByStatus(@RequestParam String status,
