@@ -17,6 +17,7 @@ public interface ItemRepository extends MongoRepository<Item, String> {
 
     // Owner-based queries
     Page<Item> findByOwner(User owner, Pageable pageable);
+    Page<Item> findByOwnerAndIsActiveTrue(User owner, Pageable pageable);
     List<Item> findByOwnerAndIsActiveTrueAndStatus(User owner, String status, Sort sort);
 
     @Query("{ 'owner.$id': ?0 }")

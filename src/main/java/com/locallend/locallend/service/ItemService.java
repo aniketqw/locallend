@@ -8,6 +8,7 @@ import com.locallend.locallend.exception.UnauthorizedItemAccessException;
 import com.locallend.locallend.model.Category;
 import com.locallend.locallend.model.Item;
 import com.locallend.locallend.model.User;
+import com.locallend.locallend.model.enums.ItemStatus;
 import com.locallend.locallend.repository.CategoryRepository;
 import com.locallend.locallend.repository.ItemRepository;
 import com.locallend.locallend.repository.UserRepository;
@@ -91,23 +92,53 @@ public class ItemService {
         Item item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException(itemId));
         checkOwner(item, currentUserId);
 
-        // Soft delete
-        item.setActive(false);
-        itemRepository.save(item);
+        // Soft delete - only delete if it's currently active
+        if (item.isActive()) {
+            item.setActive(false);
+            itemRepository.save(item);
 
-        // decrement owner's item count
-        User owner = item.getOwner();
-        if (owner != null && owner.getItemCount() > 0) {
-            owner.setItemCount(owner.getItemCount() - 1);
-            userRepository.save(owner);
+            // decrement owner's item count
+            User owner = item.getOwner();
+            if (owner != null && owner.getItemCount() > 0) {
+                owner.setItemCount(owner.getItemCount() - 1);
+                userRepository.save(owner);
+            }
         }
+    }
+
+    public ItemDTO reactivateItem(String itemId, String currentUserId) {
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException(itemId));
+        checkOwner(item, currentUserId);
+
+        // Reactivate soft-deleted item
+        if (!item.isActive()) {
+            item.setActive(true);
+            Item saved = itemRepository.save(item);
+
+            // increment owner's item count
+            User owner = item.getOwner();
+            if (owner != null) {
+                owner.setItemCount(owner.getItemCount() + 1);
+                userRepository.save(owner);
+            }
+            
+            return toItemDTO(saved);
+        }
+        return toItemDTO(item);
     }
 
     public ItemDTO toggleAvailability(String itemId, String currentUserId) {
         Item item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException(itemId));
         checkOwner(item, currentUserId);
 
-        item.setActive(!item.isActive());
+        // Toggle between AVAILABLE and UNAVAILABLE (don't change isActive - that's for soft delete)
+        if (item.getStatus() == ItemStatus.AVAILABLE) {
+            item.setStatus(ItemStatus.UNAVAILABLE);
+        } else if (item.getStatus() == ItemStatus.UNAVAILABLE) {
+            item.setStatus(ItemStatus.AVAILABLE);
+        }
+        // Don't allow toggling if item is BORROWED
+        
         Item saved = itemRepository.save(item);
         return toItemDTO(saved);
     }
@@ -150,7 +181,7 @@ public class ItemService {
     public Page<ItemDTO> getItemsByOwner(String ownerId, int page, int size) {
         User owner = userRepository.findById(ownerId).orElseThrow(() -> new IllegalArgumentException("Owner not found"));
         Pageable p = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Item> items = itemRepository.findByOwner(owner, p);
+        Page<Item> items = itemRepository.findByOwnerAndIsActiveTrue(owner, p);
         List<ItemDTO> dtos = items.stream().map(this::toItemDTO).collect(Collectors.toList());
         return new PageImpl<>(dtos, p, items.getTotalElements());
     }
