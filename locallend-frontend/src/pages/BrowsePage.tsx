@@ -198,7 +198,7 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
                 alignItems: 'center'
               }}>
                 <div style={{ fontWeight: 'bold', color: '#4caf50', fontSize: '18px' }}>
-                  ${item.pricePerDay}/day
+                  ₹${item.pricePerDay}/day
                 </div>
                 <button
                   style={{

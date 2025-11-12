@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { bookingService } from '../services/bookingService';
+import type { CreateBookingRequest } from '../types';
 
 interface BookItemPageProps {
   onBack: () => void;
@@ -33,13 +35,34 @@ export const BookItemPage: React.FC<BookItemPageProps> = ({ onBack, item }) => {
       return;
     }
 
-    if (new Date(formData.startDate) <= new Date()) {
-      alert('Start date must be in the future');
+    // More robust date validation
+    const now = new Date();
+    const startDate = new Date(formData.startDate);
+    const endDate = new Date(formData.endDate);
+    
+    // Start date must be at least tomorrow
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    if (startDate < tomorrow) {
+      alert('Start date must be at least tomorrow');
       return;
     }
 
-    if (new Date(formData.endDate) <= new Date(formData.startDate)) {
+    if (endDate <= startDate) {
       alert('End date must be after start date');
+      return;
+    }
+    
+    // Additional validation checks
+    if (!formData.acceptTerms) {
+      alert('You must accept the terms and conditions');
+      return;
+    }
+    
+    if (!item?.id) {
+      alert('Invalid item selected');
       return;
     }
 
@@ -48,106 +71,125 @@ export const BookItemPage: React.FC<BookItemPageProps> = ({ onBack, item }) => {
     try {
       console.log('🚀 Creating booking for item:', item.id, 'user:', user?.id);
       
-      // Helper to produce canonical ISO (trim milliseconds) and a local no-Z variant
-      const isoNoMillis = (d: Date) => d.toISOString().replace(/\..+Z$/, 'Z'); // drop milliseconds for cleaner backend parsing
-      const localNoZone = (d: Date) => {
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-      };
-
+      // Create date objects with proper time
       const startDateTime = new Date(formData.startDate + 'T10:00:00');
       const endDateTime = new Date(formData.endDate + 'T18:00:00');
       
-      // Primary payload uses snake_case to match Mongo keys (start_date/end_date, etc.)
-      const bookingDataSnake = {
-        item_id: item.id,
-        start_date: localNoZone(startDateTime),
-        end_date: localNoZone(endDateTime),
-        booking_notes: (formData.bookingNotes || '').slice(0, 500),
-        deposit_amount: Number(formData.depositAmount) || 0,
-        duration_days: Math.max(1, Math.ceil((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60 * 24))),
-        accept_terms: formData.acceptTerms === true
-      } as const;
+      // Calculate duration in days
+      const durationDays = Math.max(1, Math.ceil((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60 * 24)));
+      
+      // Format according to integration guide requirements
+      // The guide shows format: "2025-11-10T10:00:00" (without Z and milliseconds)
+      const formatDateTime = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+      };
 
-      // Fallback camelCase (if API expects DTO mapping per guide)
-      const bookingDataCamel = {
+      const bookingData = {
         itemId: item.id,
-        startDate: isoNoMillis(startDateTime),
-        endDate: isoNoMillis(endDateTime),
+        startDate: formatDateTime(startDateTime),  // "2025-11-10T10:00:00"
+        endDate: formatDateTime(endDateTime),      // "2025-11-13T18:00:00"
         bookingNotes: (formData.bookingNotes || '').slice(0, 500),
         depositAmount: Number(formData.depositAmount) || 0,
-        requestedDurationDays: Math.max(1, Math.ceil((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60 * 24))),
-        acceptTerms: formData.acceptTerms === true
-      } as const;
+        requestedDurationDays: durationDays,
+        acceptTerms: formData.acceptTerms
+      };
       
-  console.log('📝 Booking data to send (snake_case):', bookingDataSnake);
+      console.log('📝 Booking data to send:', bookingData);
+      console.log('🆔 User ID for X-User-Id header:', user?.id);
       
-        const token = localStorage.getItem('token');
-        if (!token) {
-          alert('❌ Authentication token not found. Please log in again.');
+      if (!user?.id) {
+        alert('❌ User not found. Please log in again.');
+        return;
+      }
+      
+      // Test backend connectivity first
+      try {
+        const healthCheck = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/categories`, {
+          method: 'GET'
+        });
+        console.log('🏥 Backend health check:', healthCheck.status);
+        if (!healthCheck.ok) {
+          alert(`❌ Backend connectivity issue: ${healthCheck.status}. Please check if backend is running on port 8080.`);
           return;
         }
+      } catch (connectError) {
+        console.error('🏥 Backend connection failed:', connectError);
+        alert('❌ Cannot connect to backend. Please ensure backend is running on port 8080.');
+        return;
+      }
       
-        // Try snake_case first (matches Mongo keys you've shared)
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings`, {
+      try {
+        // First try direct fetch to see exact error
+        const token = localStorage.getItem('token');
+        console.log('🔐 Using token:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
+        
+        const directResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
-            'X-User-Id': user?.id?.toString() || ''
+            'X-User-Id': user.id
           },
-          body: JSON.stringify(bookingDataSnake)
+          body: JSON.stringify(bookingData)
         });
-      
-      console.log('📡 Booking response status:', response.status);
-      
-      if (response.ok) {
-        const bookingResponse = await response.json();
+        
+        console.log('📡 Direct response status:', directResponse.status);
+        console.log('📡 Direct response headers:', Object.fromEntries(directResponse.headers.entries()));
+        
+        if (!directResponse.ok) {
+          const errorText = await directResponse.text();
+          console.error('📡 Direct response error body:', errorText);
+          
+          let errorJson = null;
+          try {
+            errorJson = JSON.parse(errorText);
+          } catch (e) {
+            // Error text is not JSON
+          }
+          
+          throw new Error(`HTTP ${directResponse.status}: ${errorJson?.message || errorText || 'Unknown error'}`);
+        }
+        
+        const bookingResponse = await directResponse.json();
+        console.log('✅ Direct booking created successfully:', bookingResponse);
+        
+        // Also test the service layer for comparison
+        // const bookingResponse = await bookingService.createBooking(bookingData, user.id);
         console.log('✅ Booking created successfully:', bookingResponse);
         alert(`✅ Booking request sent for "${item.name}"! You can track it in your dashboard.`);
         onBack();
-      } else {
-        let backendMessage = '';
-        try {
-          const maybeJson = await response.json();
-          backendMessage = maybeJson.message || maybeJson.details || JSON.stringify(maybeJson);
-        } catch {
-          backendMessage = await response.text();
-        }
-        console.error('❌ Booking failed:', response.status, backendMessage);
-        const statusMap: Record<number, string> = {
-          400: 'Invalid booking data. Please verify dates (future & end after start), accept terms, and required fields.',
-          401: 'Not authenticated. Please log in again.',
-          403: 'Not authorized to create booking for this item.',
-          404: 'Booking endpoint not found. Backend may not be running.',
-          500: 'Server error. Please try again later.'
-        };
-        const errorMessage = statusMap[response.status] || `Unexpected error ${response.status}`;
-        // Attempt fallback with camelCase if validation suggests unknown fields
-        if (response.status === 400 && /unknown|invalid|start|end|date/i.test(backendMessage)) {
-          console.warn('🔄 Retrying booking with camelCase payload fallback');
-          const retry = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-              'X-User-Id': user?.id?.toString() || ''
-            },
-            body: JSON.stringify(bookingDataCamel)
-          });
-          if (retry.ok) {
-            const bookingResponse = await retry.json();
-            console.log('✅ Booking created successfully on fallback:', bookingResponse);
-            alert(`✅ Booking request (fallback) sent for "${item.name}"!`);
-            onBack();
-            return;
+      } catch (serviceError: any) {
+        console.error('❌ Booking service failed:', serviceError);
+        console.error('Full error object:', JSON.stringify(serviceError, null, 2));
+        
+        // Try to extract detailed error information
+        let detailedError = 'Unknown error occurred';
+        if (serviceError?.response) {
+          const { status, data } = serviceError.response;
+          console.error(`HTTP ${status}:`, data);
+          
+          if (status === 400) {
+            detailedError = `Bad Request (400): ${data?.message || data?.details || JSON.stringify(data)}`;
+          } else if (status === 401) {
+            detailedError = 'Unauthorized (401): Please log in again';
+          } else if (status === 403) {
+            detailedError = 'Forbidden (403): Not authorized to create booking';
+          } else if (status === 404) {
+            detailedError = 'Not Found (404): Booking endpoint not available';
           } else {
-            let retryMsg = await retry.text();
-            alert(`❌ Failed booking (camelCase + fallback): ${errorMessage}\nOriginal: ${backendMessage}\nFallback: ${retryMsg}`);
-            return;
+            detailedError = `HTTP ${status}: ${data?.message || 'Server error'}`;
           }
+        } else if (serviceError?.message) {
+          detailedError = serviceError.message;
         }
-        alert(`❌ Failed to create booking: ${errorMessage}\nDetails: ${backendMessage}`);
+        
+        alert(`❌ Failed to create booking:\n${detailedError}\n\nCheck browser console for detailed logs.`);
       }
     } catch (error) {
       console.error('💥 Error creating booking:', error);
@@ -223,7 +265,7 @@ export const BookItemPage: React.FC<BookItemPageProps> = ({ onBack, item }) => {
 
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
-            Deposit Amount (Optional)
+            Deposit Amount in ₹ (Optional)
           </label>
           <input
             type="number"

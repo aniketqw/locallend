@@ -55,9 +55,10 @@ export const itemService = {
     });
   },
 
-  // Update item status
-  updateItemStatus: async (itemId: string, status: ItemStatus, userId: string): Promise<Item> => {
-    const response = await api.patch(`/api/items/${itemId}/status`, { status }, {
+  // Update item status - using toggle endpoint only
+  updateItemStatus: async (itemId: string, _status: ItemStatus, userId: string): Promise<Item> => {
+    // Note: toggle endpoint ignores the status parameter and just flips current status
+    const response = await api.patch(`/api/items/${itemId}/toggle-availability`, null, {
       headers: addUserIdHeader(userId)
     });
     return response;
