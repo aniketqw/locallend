@@ -40,7 +40,7 @@ export const HomePage = () => {
           <p>Description of the item...</p>
           <div class="item-meta">
             <span class="condition">Condition: Excellent</span>
-            <span class="deposit">Deposit: $50</span>
+            <span class="deposit">Deposit: ₹50</span>
             <span class="rating">⭐ 4.5</span>
           </div>
           <button>View Details</button>

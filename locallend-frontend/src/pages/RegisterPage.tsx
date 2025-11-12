@@ -105,8 +105,33 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validation to match backend requirements
+    const validationErrors: string[] = [];
+    
+    if (formData.username.length < 3 || formData.username.length > 50) {
+      validationErrors.push('Username must be between 3 and 50 characters');
+    }
+    
+    if (formData.name.length < 2 || formData.name.length > 100) {
+      validationErrors.push('Full name must be between 2 and 100 characters');
+    }
+    
+    if (formData.password.length < 8) {
+      validationErrors.push('Password must be at least 8 characters long');
+    }
+    
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      validationErrors.push('Passwords do not match');
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      validationErrors.push('Please enter a valid email address');
+    }
+    
+    if (validationErrors.length > 0) {
+      alert('Validation errors:\n' + validationErrors.join('\n'));
       return;
     }
 
@@ -252,6 +277,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
               value={formData.name}
               onChange={handleChange}
               required
+              minLength={2}
+              maxLength={100}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -286,14 +313,13 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
           
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#000' }}>
-              Phone Number
+              Phone Number (Optional)
             </label>
             <input
               type="tel"
               name="phoneNumber"
               value={formData.phoneNumber}
               onChange={handleChange}
-              required
               style={{
                 width: '100%',
                 padding: '12px',
@@ -307,7 +333,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
           
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#000' }}>
-              Password
+              Password (Minimum 8 characters)
             </label>
             <input
               type="password"
@@ -315,7 +341,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
               value={formData.password}
               onChange={handleChange}
               required
-              minLength={6}
+              minLength={8}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -337,7 +363,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              minLength={6}
+              minLength={8}
               style={{
                 width: '100%',
                 padding: '12px',

@@ -24,8 +24,8 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ onBack, se
   // Helpers for richer display
   const formatCurrency = (amount: any) => {
     const n = Number(amount ?? 0);
-    if (!isFinite(n)) return '$0.00';
-    return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+    if (!isFinite(n)) return '₹0.00';
+    return n.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
   };
 
   const formatDate = (dateLike: any) => {

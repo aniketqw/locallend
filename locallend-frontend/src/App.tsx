@@ -201,27 +201,6 @@ const App = () => {
             </ul>
           </section>
 
-          <section style={{ backgroundColor: '#f8f9fa', padding: '30px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #e9ecef' }}>
-            <h3 style={{ color: '#1976d2', marginBottom: '25px' }}>Application Features</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: '1px solid #e9ecef' }}>
-                <h4 style={{ color: '#333', marginBottom: '10px' }}>🔐 Authentication</h4>
-                <p style={{ color: '#666', margin: '0' }}>User registration, login, JWT token management</p>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: '1px solid #e9ecef' }}>
-                <h4 style={{ color: '#333', marginBottom: '10px' }}>📱 Item Management</h4>
-                <p style={{ color: '#666', margin: '0' }}>Create, edit, browse items with categories and conditions</p>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: '1px solid #e9ecef' }}>
-                <h4 style={{ color: '#333', marginBottom: '10px' }}>📅 Booking System</h4>
-                <p style={{ color: '#666', margin: '0' }}>Request, approve, track borrowing periods</p>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: '1px solid #e9ecef' }}>
-                <h4 style={{ color: '#333', marginBottom: '10px' }}>⭐ Rating System</h4>
-                <p style={{ color: '#666', margin: '0' }}>Rate users and items to build community trust</p>
-              </div>
-            </div>
-          </section>
         </main>
 
         <footer style={{ marginTop: '50px', textAlign: 'center', color: '#666', borderTop: '2px solid #e9ecef', paddingTop: '30px', backgroundColor: '#f8f9fa', marginLeft: '-20px', marginRight: '-20px', padding: '30px 20px' }}>

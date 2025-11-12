@@ -368,7 +368,7 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
             {/* Deposit */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
-                Deposit ($) *
+                Deposit (₹) *
               </label>
               <input
                 type="number"
