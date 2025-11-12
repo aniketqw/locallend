@@ -32,10 +32,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onBack, onAddItem 
 
     setDeletingItemId(itemId);
     try {
-      console.log('🗑️ Deleting item:', itemId);
-      await itemService.deleteItem(itemId, user.id);
+      console.log('🗑️ Deleting item:', itemId, 'with userId:', user.id);
+      console.log('🗑️ DELETE request URL:', `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/items/${itemId}`);
       
-      // Remove the item from the local state
+      const deleteResult = await itemService.deleteItem(itemId, user.id);
+      console.log('🗑️ Delete API response:', deleteResult);
+      
+      // Remove the item from the local state immediately
       setMyItems(prevItems => prevItems.filter(item => item.id !== itemId));
       
       alert(`✅ "${itemName}" has been successfully deleted.`);

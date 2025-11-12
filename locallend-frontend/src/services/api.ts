@@ -39,6 +39,9 @@ const createFetchClient = (): ApiClient => {
       });
       
       console.log(`📨 Response: ${response.status} ${response.statusText}`);
+    
+    // Log response headers for debugging
+    console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
     } catch (error: any) {
       console.error('❌ Network Error:', error);
       // Handle network errors (CORS, connection refused, etc.)
@@ -74,7 +77,18 @@ const createFetchClient = (): ApiClient => {
       throw error;
     }
 
-    return response.json();
+    // Handle 204 No Content responses (like DELETE operations)
+    if (response.status === 204) {
+      return null;
+    }
+
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    } else {
+      return null;
+    }
   };
 
   return {

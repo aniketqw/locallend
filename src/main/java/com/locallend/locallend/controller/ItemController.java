@@ -315,4 +315,35 @@ public class ItemController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
     }
+
+    /**
+     * Reactivate a soft-deleted item (for testing purposes)
+     * POST /api/items/{id}/reactivate
+     * Request header: X-User-Id (required for owner verification)
+     */
+    @PostMapping("/{id}/reactivate")
+    public ResponseEntity<?> reactivateItem(
+            @PathVariable String id,
+            @RequestHeader(value = "X-User-Id", required = true) String userId) {
+        
+        try {
+            ItemDTO item = itemService.reactivateItem(id, userId);
+            return ResponseEntity.ok(item);
+        } catch (com.locallend.locallend.exception.UnauthorizedItemAccessException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Access denied");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+        } catch (com.locallend.locallend.exception.ItemNotFoundException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Item not found");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Failed to reactivate item");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
 }
