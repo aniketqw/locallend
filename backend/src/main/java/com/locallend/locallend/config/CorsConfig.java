@@ -35,7 +35,9 @@ public class CorsConfig {
             "http://127.0.0.1",          // Production (alternative localhost)
             "http://127.0.0.1:80",       // Production (alternative localhost port 80)
             "http://127.0.0.1:3000",     // Alternative localhost
-            "http://127.0.0.1:5173"      // Alternative localhost
+            "http://127.0.0.1:5173",     // Alternative localhost
+            "https://*.hf.space",        // Hugging Face Spaces
+            "https://*.huggingface.co"   // Hugging Face domain
         ));
         
         // Allow specific HTTP methods

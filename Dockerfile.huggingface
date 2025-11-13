@@ -64,18 +64,15 @@ COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built backend JAR
 COPY --from=backend-builder /app/backend/target/*.jar /app/backend.jar
 
-# Create a startup script
-RUN cat > /app/start.sh << 'EOF'
-#!/bin/bash
-
-# Start nginx in background
-nginx
-
-# Start Spring Boot application in foreground
-exec java -jar /app/backend.jar
-EOF
-
-RUN chmod +x /app/start.sh
+# Create a startup script using echo to avoid heredoc parsing issues
+RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Start nginx in background' >> /app/start.sh && \
+    echo 'nginx' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Start Spring Boot application in foreground' >> /app/start.sh && \
+    echo 'exec java -jar /app/backend.jar' >> /app/start.sh && \
+    chmod +x /app/start.sh
 
 # Hugging Face Spaces expects the app to run on port 7860
 EXPOSE 7860
