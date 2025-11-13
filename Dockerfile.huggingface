@@ -75,10 +75,11 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Hugging Face Spaces expects the app to run on port 7860
+# Nginx will listen on 7860 and proxy to backend on 8080
 EXPOSE 7860
 
 # Set environment variables
-ENV SERVER_PORT=7860
+ENV SERVER_PORT=8080
 ENV SPRING_PROFILES_ACTIVE=prod
 
 # Start both nginx and Spring Boot
