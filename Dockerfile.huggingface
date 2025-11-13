@@ -22,8 +22,23 @@ COPY frontend/ ./
 ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-# Build frontend
-RUN npm run build
+# Build frontend with error checking
+RUN echo "=== Building frontend with Vite ===" && \
+    npm run build 2>&1 | tee /tmp/build.log && \
+    echo "=== Build complete ===" && \
+    echo "=== Verifying build output ===" && \
+    ls -laR dist/ && \
+    echo "=== Checking assets folder ===" && \
+    ls -la dist/assets/ && \
+    ASSET_COUNT=$(find dist/assets -type f | wc -l) && \
+    echo "Assets folder contains $ASSET_COUNT files" && \
+    if [ "$ASSET_COUNT" -lt 1 ]; then \
+        echo "ERROR: Frontend build failed - no assets generated!" && \
+        echo "=== Build log ===" && \
+        cat /tmp/build.log && \
+        exit 1; \
+    fi && \
+    echo "=== Frontend build verification passed ==="
 
 # ============================================
 # Stage 2: Build Backend
