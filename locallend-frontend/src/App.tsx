@@ -11,6 +11,8 @@ import { MyBookingsPage } from './pages/MyBookingsPage';
 import { AddItemPage } from './pages/AddItemPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 import { BookItemPage } from './pages/BookItemPage';
+import { categoryService } from './services/categoryService';
+import type { Category } from './types';
 
 type Page = 'home' | 'login' | 'register' | 'browse' | 'search' | 'dashboard' | 'my-items' | 'my-bookings' | 'add-item' | 'book-item';
 
@@ -18,6 +20,7 @@ const App = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Restore last page from localStorage (simple persistence)
   useEffect(() => {
@@ -49,6 +52,22 @@ const App = () => {
       localStorage.removeItem('selectedItem');
     }
   }, [currentPage]);
+
+  // Fetch categories for dropdown
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await categoryService.getCategories();
+        if (response && response.data) {
+          setCategories(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
   // Auto-route to dashboard after successful login
@@ -153,10 +172,9 @@ const App = () => {
             <input type="search" placeholder="Search items..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1, padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '14px' }} />
             <select style={{ padding: '8px', border: 'none', borderRadius: '4px', fontSize: '14px' }}>
               <option value="">All Categories</option>
-              <option value="electronics">Electronics</option>
-              <option value="tools">Tools</option>
-              <option value="sports">Sports</option>
-              <option value="books">Books</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
             </select>
             <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#1565c0', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}>Search</button>
           </form>
