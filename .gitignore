@@ -1,10 +1,27 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# Backend
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+!backend/src/main/**/target/
+!backend/src/test/**/target/
+backend/**/*.class
+backend/**/*.jar
+backend/**/*.war
+backend/**/*.ear
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# SSH Keys
 sshKey
 sshKey.pub
+
+# IDEs
 ### STS ###
 .apt_generated
 .classpath
@@ -32,15 +49,16 @@ build/
 
 ### VS Code ###
 .vscode/
+.claude/
 
-### Environment Variables ###
+# Environment Variables
 .env
 .env.local
 .env.*.local
-**/.env
-locallend-frontend/.env
 
-### Documentation and Scripts ###
+# Documentation and Scripts
+HELP.md
+
 # Implementation documentation
 ISSUE_*_IMPLEMENTATION.md
 README_SIMPLE.md
@@ -55,3 +73,19 @@ API_CATEGORIES_ENDPOINTS.txt
 
 # PowerShell scripts
 *.ps1
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+.dockerignore

@@ -3,14 +3,14 @@ version: '3.8'
 services:
   mongodb:
     image: mongo:7
-    container_name: locallend-mongodb
-    restart: always
+    container_name: locallend-mongodb-dev
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
+      - mongodb_data_dev:/data/db
     networks:
-      - locallend-network
+      - locallend-network-dev
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/locallend --quiet
       interval: 10s
@@ -21,41 +21,50 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: locallend-backend
-    restart: always
+    container_name: locallend-backend-dev
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/locallend
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: dev
       SERVER_PORT: 8080
     env_file:
       - ./backend/.env
     depends_on:
       mongodb:
         condition: service_healthy
+    volumes:
+      # Enable hot reload by mounting source code
+      - ./backend/src:/app/src:ro
     networks:
-      - locallend-network
+      - locallend-network-dev
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    container_name: locallend-frontend
-    restart: always
+      dockerfile: Dockerfile.dev
+    container_name: locallend-frontend-dev
+    restart: unless-stopped
     ports:
-      - "80:80"
+      - "5173:5173"
     environment:
       VITE_API_BASE_URL: http://localhost:8080
+      VITE_NODE_ENV: development
     depends_on:
       - backend
+    volumes:
+      # Enable hot reload
+      - ./frontend:/app
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
     networks:
-      - locallend-network
+      - locallend-network-dev
 
 volumes:
-  mongodb_data:
+  mongodb_data_dev:
     driver: local
 
 networks:
-  locallend-network:
+  locallend-network-dev:
     driver: bridge
