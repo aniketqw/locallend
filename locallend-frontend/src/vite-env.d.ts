@@ -5,7 +5,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string;
-  readonly VITE_IMAGE_BASE_URL: string;
+  readonly VITE_IMAGE_BASE_URL?: string; // DEPRECATED: Images use Cloudinary full URLs
   readonly VITE_APP_TITLE: string;
 }
 

@@ -16,6 +16,12 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
     condition: 'GOOD',
     deposit: ''
   });
+  
+  // Image upload states
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   // Load categories from backend on component mount
   useEffect(() => {
@@ -77,6 +83,99 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
     }));
   };
 
+  // Handle image file selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const fileArray = Array.from(files);
+    
+    // Validate file count
+    if (fileArray.length + selectedFiles.length > 5) {
+      alert('Maximum 5 images allowed per item');
+      return;
+    }
+
+    // Validate file types and sizes
+    const validFiles: File[] = [];
+    for (const file of fileArray) {
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} is not an image file`);
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`${file.name} exceeds 10MB size limit`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
+
+    // Update selected files
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+
+    // Generate previews
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Remove an image from selection
+  const handleRemoveImage = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setUploadedImageUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Upload images to backend
+  const uploadImages = async (): Promise<string[]> => {
+    if (selectedFiles.length === 0) return [];
+
+    setIsUploadingImages(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      // Upload images one by one (or use upload-multiple endpoint)
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'locallend/items');
+
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/images/upload`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          uploadedUrls.push(result.url);
+        } else {
+          console.error('Failed to upload image:', file.name);
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+      }
+
+      setUploadedImageUrls(uploadedUrls);
+      return uploadedUrls;
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      throw new Error('Failed to upload images: ' + error.message);
+    } finally {
+      setIsUploadingImages(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -109,6 +208,19 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
     setIsLoading(true);
     
     try {
+      // Upload images first (if any selected)
+      let imageUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        try {
+          imageUrls = await uploadImages();
+          console.log('Images uploaded successfully:', imageUrls);
+        } catch (uploadError: any) {
+          alert('Failed to upload images. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // Prepare item data matching the backend CreateItemRequest interface
       const itemData = {
         name: formData.title, // Backend expects 'name', not 'title'
@@ -116,7 +228,7 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
         categoryId: formData.category, // Backend expects categoryId
         condition: formData.condition,
         deposit: Number(formData.deposit) || 0,
-        images: [] // No image upload implemented yet
+        images: imageUrls // Include uploaded image URLs
       };
 
       console.log('Submitting item data:', itemData);
@@ -145,6 +257,9 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
           condition: 'GOOD',
           deposit: ''
         });
+        setSelectedFiles([]);
+        setImagePreviews([]);
+        setUploadedImageUrls([]);
         
         onBack(); // Go back to dashboard/home
       } else {
@@ -390,6 +505,107 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
               />
             </div>
 
+            {/* Image Upload Section */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
+                Item Images (Optional, max 5)
+              </label>
+              <p style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
+                Upload clear photos of your item. Supported formats: JPG, PNG, GIF, WebP (max 10MB each)
+              </p>
+              
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageSelect}
+                disabled={isUploadingImages || selectedFiles.length >= 5}
+                style={{
+                  display: 'block',
+                  marginBottom: '15px',
+                  padding: '10px',
+                  border: '2px dashed #ddd',
+                  borderRadius: '4px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  cursor: selectedFiles.length >= 5 ? 'not-allowed' : 'pointer'
+                }}
+              />
+
+              {/* Image Previews */}
+              {imagePreviews.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', border: '2px solid #ddd' }}>
+                      <img 
+                        src={preview} 
+                        alt={`Preview ${index + 1}`} 
+                        style={{ 
+                          width: '100%', 
+                          height: '120px', 
+                          objectFit: 'cover',
+                          display: 'block'
+                        }} 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        disabled={isUploadingImages}
+                        style={{
+                          position: 'absolute',
+                          top: '5px',
+                          right: '5px',
+                          backgroundColor: 'rgba(244, 67, 54, 0.9)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '24px',
+                          height: '24px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          lineHeight: '24px',
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title="Remove image"
+                      >
+                        ×
+                      </button>
+                      {uploadedImageUrls[index] && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '5px',
+                          left: '5px',
+                          backgroundColor: 'rgba(76, 175, 80, 0.9)',
+                          color: 'white',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          fontSize: '10px',
+                          fontWeight: 'bold'
+                        }}>
+                          ✓ Uploaded
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {isUploadingImages && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  padding: '10px', 
+                  backgroundColor: '#e3f2fd', 
+                  borderRadius: '4px',
+                  color: '#1976d2',
+                  fontSize: '14px'
+                }}>
+                  📤 Uploading images...
+                </div>
+              )}
+            </div>
 
             {/* Submit Buttons */}
             <div style={{ display: 'flex', gap: '15px' }}>

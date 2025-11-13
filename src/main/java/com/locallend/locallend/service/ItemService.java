@@ -34,11 +34,14 @@ public class ItemService {
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
+    private final ImageService imageService;
 
-    public ItemService(ItemRepository itemRepository, UserRepository userRepository, CategoryRepository categoryRepository) {
+    public ItemService(ItemRepository itemRepository, UserRepository userRepository, 
+                      CategoryRepository categoryRepository, ImageService imageService) {
         this.itemRepository = itemRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
+        this.imageService = imageService;
     }
 
     public ItemDTO createItem(CreateItemRequest request, String ownerId) {
@@ -81,7 +84,36 @@ public class ItemService {
         if (request.getDescription() != null) item.setDescription(request.getDescription());
         if (request.getCondition() != null) item.setCondition(com.locallend.locallend.model.enums.ItemCondition.fromString(request.getCondition()));
         if (request.getDeposit() != null) item.setDeposit(request.getDeposit());
-        if (request.getImages() != null) item.setImages(request.getImages());
+        
+        // Handle image updates - delete removed images from Cloudinary
+        if (request.getImages() != null) {
+            List<String> oldImages = item.getImages();
+            List<String> newImages = request.getImages();
+            
+            // Find images that were removed (in old but not in new)
+            if (oldImages != null && !oldImages.isEmpty()) {
+                List<String> removedImages = oldImages.stream()
+                    .filter(oldUrl -> !newImages.contains(oldUrl))
+                    .collect(java.util.stream.Collectors.toList());
+                
+                // Delete removed images from Cloudinary
+                if (!removedImages.isEmpty()) {
+                    logger.info("Deleting {} removed images from Cloudinary for item {}", 
+                               removedImages.size(), itemId);
+                    try {
+                        int deletedCount = imageService.deleteMultipleImages(removedImages);
+                        logger.info("Successfully deleted {} out of {} images from Cloudinary", 
+                                   deletedCount, removedImages.size());
+                    } catch (Exception e) {
+                        logger.warn("Failed to delete some images from Cloudinary: {}", e.getMessage());
+                        // Continue with update even if image deletion fails
+                    }
+                }
+            }
+            
+            item.setImages(newImages);
+        }
+        
         if (request.getIsAvailable() != null) item.setActive(request.getIsAvailable());
 
         Item updated = itemRepository.save(item);
@@ -94,6 +126,22 @@ public class ItemService {
 
         // Soft delete - only delete if it's currently active
         if (item.isActive()) {
+            // Delete images from Cloudinary before soft-deleting the item
+            if (item.getImages() != null && !item.getImages().isEmpty()) {
+                logger.info("Deleting {} images from Cloudinary for item {}", 
+                           item.getImages().size(), itemId);
+                try {
+                    int deletedCount = imageService.deleteMultipleImages(item.getImages());
+                    logger.info("Successfully deleted {} out of {} images from Cloudinary", 
+                               deletedCount, item.getImages().size());
+                } catch (Exception e) {
+                    logger.error("Failed to delete images from Cloudinary for item {}: {}", 
+                                itemId, e.getMessage());
+                    // Continue with soft delete even if image deletion fails
+                    // Images can be cleaned up manually or via scheduled task
+                }
+            }
+            
             item.setActive(false);
             itemRepository.save(item);
 

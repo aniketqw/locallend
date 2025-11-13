@@ -104,10 +104,31 @@ export const formatTrustScore = (score: number): string => {
 };
 
 // URL utilities
+/**
+ * Get full image URL from path or URL
+ * Works with:
+ * - Full Cloudinary URLs (https://res.cloudinary.com/...)
+ * - Full HTTP/HTTPS URLs
+ * - Relative paths (legacy support)
+ * @param imagePath - Image path or URL
+ * @returns Full image URL or placeholder
+ */
 export const getImageUrl = (imagePath: string): string => {
   if (!imagePath) return '/placeholder-image.jpg';
-  if (imagePath.startsWith('http')) return imagePath;
-  return `${import.meta.env.VITE_IMAGE_BASE_URL || ''}${imagePath}`;
+  
+  // If already a full URL (Cloudinary or other), return as-is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Legacy support: relative paths (no longer used with Cloudinary)
+  // Kept for backward compatibility
+  if (import.meta.env.VITE_IMAGE_BASE_URL) {
+    return `${import.meta.env.VITE_IMAGE_BASE_URL}${imagePath}`;
+  }
+  
+  // Fallback: treat as relative path
+  return imagePath;
 };
 
 // Storage utilities
