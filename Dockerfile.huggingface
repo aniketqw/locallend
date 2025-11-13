@@ -82,7 +82,7 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo '' >> /app/start.sh && \
     echo '# Start nginx in background' >> /app/start.sh && \
     echo 'echo "Starting nginx on port 7860..."' >> /app/start.sh && \
-    echo 'nginx -g "daemon off;" &' >> /app/start.sh && \
+    echo 'nginx &' >> /app/start.sh && \
     echo 'NGINX_PID=$!' >> /app/start.sh && \
     echo 'echo "Nginx started with PID: $NGINX_PID"' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
