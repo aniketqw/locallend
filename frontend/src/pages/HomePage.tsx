@@ -1,63 +1,6 @@
 // Home/Dashboard Page Component
 // This displays items available for borrowing with search and filter functionality
 
-export interface HomePageProps {}
-
-// Placeholder function - will be converted to React component
-export const HomePage = () => {
-  return `
-    <div class="home-page">
-      <div class="hero-section">
-        <h1>Find Items to Borrow in Your Community</h1>
-        <p>LocalLend connects neighbors to share items and build community trust.</p>
-      </div>
-      
-      <div class="filters-section">
-        <div class="filter-controls">
-          <select name="category">
-            <option value="">All Categories</option>
-          </select>
-          <select name="condition">
-            <option value="">All Conditions</option>
-            <option value="NEW">New</option>
-            <option value="EXCELLENT">Excellent</option>
-            <option value="GOOD">Good</option>
-            <option value="FAIR">Fair</option>
-          </select>
-          <select name="sort">
-            <option value="createdAt,desc">Newest First</option>
-            <option value="name,asc">Name A-Z</option>
-            <option value="averageRating,desc">Highest Rated</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="items-grid">
-        <!-- Items will be dynamically loaded here -->
-        <div class="item-card">
-          <div class="item-image">📷</div>
-          <h3>Sample Item</h3>
-          <p>Description of the item...</p>
-          <div class="item-meta">
-            <span class="condition">Condition: Excellent</span>
-            <span class="deposit">Deposit: ₹50</span>
-            <span class="rating">⭐ 4.5</span>
-          </div>
-          <button>View Details</button>
-        </div>
-      </div>
-      
-      <div class="pagination">
-        <button disabled>Previous</button>
-        <span>Page 1 of 1</span>
-        <button disabled>Next</button>
-      </div>
-    </div>
-  `;
-};
-
-// When React is properly installed, this will become:
-/*
 import React, { useState, useEffect } from 'react';
 import {
   Container,
@@ -66,7 +9,6 @@ import {
   CardMedia,
   CardContent,
   Typography,
-  Button,
   Box,
   FormControl,
   InputLabel,
@@ -84,10 +26,11 @@ import { categoryService } from '../services/categoryService';
 import { handleApiError } from '../services/api';
 import { formatCurrency } from '../utils/helpers';
 import { ITEM_CONDITIONS, DEFAULT_PAGE_SIZE } from '../utils/constants';
+import type { Item, Category, ItemCondition } from '../types';
 
 export const HomePage: React.FC = () => {
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [totalPages, setTotalPages] = useState(1);
@@ -123,20 +66,20 @@ export const HomePage: React.FC = () => {
   const fetchItems = async () => {
     setLoading(true);
     setError('');
-    
+
     try {
       const params = {
         page: currentPage - 1, // Backend uses 0-based pagination
         size: DEFAULT_PAGE_SIZE,
         sort,
         ...(categoryId && { categoryId }),
-        ...(condition && { condition }),
+        ...(condition && { condition: condition as ItemCondition }),
         ...(query && { query })
       };
 
       let response;
       if (query) {
-        response = await itemService.searchItems(query, categoryId, condition);
+        response = await itemService.searchItems(query, categoryId, condition as ItemCondition);
       } else {
         response = await itemService.getItems(params);
       }
@@ -166,7 +109,7 @@ export const HomePage: React.FC = () => {
     setSearchParams(newParams);
   };
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set('page', page.toString());
     setSearchParams(newParams);
@@ -352,4 +295,3 @@ export const HomePage: React.FC = () => {
     </Container>
   );
 };
-*/

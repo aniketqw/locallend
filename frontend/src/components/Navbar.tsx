@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Person as PersonIcon,
   Notifications as NotificationsIcon,
   ExitToApp as LogoutIcon
 } from '@mui/icons-material';
@@ -32,10 +31,10 @@ export const Navbar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
-  
+
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+  const _location = useLocation();
 
   useEffect(() => {
     const fetchCategories = async () => {

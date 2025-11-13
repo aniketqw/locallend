@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { bookingService } from '../services/bookingService';
-import type { CreateBookingRequest } from '../types';
+// import { bookingService } from '../services/bookingService';
+// import type { CreateBookingRequest } from '../types';
 
 interface BookItemPageProps {
   onBack: () => void;

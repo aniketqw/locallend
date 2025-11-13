@@ -85,9 +85,9 @@ const App = () => {
 
   const handleDashboard = () => setCurrentPage('dashboard');
 
-  const handleMyItems = () => setCurrentPage('my-items');
+  const _handleMyItems = () => setCurrentPage('my-items');
 
-  const handleMyBookings = () => setCurrentPage('my-bookings');
+  const _handleMyBookings = () => setCurrentPage('my-bookings');
 
   const handleAddItem = () => setCurrentPage('add-item');
 
