@@ -88,9 +88,6 @@ locallend/
 Use these credentials to test the application:
 
 ```
-Email: u12
-Password: 12345678
-
 Email: usr2@usr2.com
 Password: user21234
 

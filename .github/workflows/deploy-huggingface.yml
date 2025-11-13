@@ -1,0 +1,296 @@
+name: Deploy LocalLend to Hugging Face Space
+
+on:
+  push:
+    branches:
+      - aniket_dev  # Deploy when pushing to aniket_dev branch
+      - main        # Also deploy from main branch
+  workflow_dispatch:  # Allow manual triggering
+
+env:
+  HF_REPO_ID: LocalLend/locallend  # Your Hugging Face Space ID (will be created as LocalLend/locallend)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Cache Node modules
+      uses: actions/cache@v3
+      with:
+        path: frontend/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Prepare Hugging Face Dockerfile
+      run: |
+        # Copy the Hugging Face specific Dockerfile
+        cp Dockerfile.huggingface Dockerfile
+
+        # Copy the Hugging Face specific nginx configuration
+        cp nginx.huggingface.conf frontend/nginx.conf
+
+        echo "✅ Prepared Dockerfile and nginx config for Hugging Face"
+
+    - name: Test Frontend Build
+      run: |
+        cd frontend
+        npm install --legacy-peer-deps
+        VITE_API_BASE_URL=/api npm run build
+        echo "✅ Frontend build successful"
+
+    - name: Test Backend Build
+      run: |
+        cd backend
+        mvn clean package -DskipTests
+        echo "✅ Backend build successful"
+
+    - name: Create README.md for Hugging Face Space
+      run: |
+        cat > HF_README.md << 'EOF'
+        ---
+        title: LocalLend
+        emoji: 🏘️
+        colorFrom: blue
+        colorTo: green
+        sdk: docker
+        app_port: 7860
+        pinned: false
+        ---
+
+        # LocalLend - Community Item Sharing Platform
+
+        LocalLend is a community-driven platform that connects neighbors to share items and build trust within their local community.
+
+        ## 🌟 Features
+
+        - **Item Listing & Browsing**: Browse available items in your community
+        - **Smart Search & Filters**: Filter by category, condition, and ratings
+        - **Booking System**: Request to borrow items with date management
+        - **Rating System**: Rate items and users to build community trust
+        - **User Profiles**: View user trust scores and borrowing history
+        - **Secure Authentication**: JWT-based authentication system
+        - **Image Management**: Upload and manage item images via Cloudinary
+
+        ## 🛠️ Tech Stack
+
+        **Backend:**
+        - Spring Boot 3.5.6
+        - Java 17
+        - MongoDB for data persistence
+        - JWT for authentication
+        - Cloudinary for image storage
+
+        **Frontend:**
+        - React 19
+        - TypeScript
+        - Material-UI (MUI)
+        - Vite build tool
+
+        ## 🚀 Getting Started
+
+        This application is automatically deployed from the GitHub repository and runs on Hugging Face Spaces.
+
+        ### Test Credentials
+        You can use these test accounts to explore the platform:
+        - **Username**: `fasd@gmail.com`
+        - **Password**: `12345678`
+
+        ## 📝 How to Use
+
+        1. **Register/Login**: Create an account or login with test credentials
+        2. **Browse Items**: View available items on the home page
+        3. **Filter & Search**: Use filters to find specific items
+        4. **Book Items**: Click on an item to view details and create a booking
+        5. **Manage Bookings**: View and manage your bookings from the dashboard
+        6. **Rate & Review**: After completing a booking, rate the item and owner
+
+        ## 🔧 Environment Variables
+
+        The following environment variables are configured as Hugging Face Secrets:
+        - `MONGODB_URI`: MongoDB connection string (MongoDB Atlas)
+        - `JWT_SECRET`: Secret key for JWT token generation
+        - `CLOUDINARY_CLOUD_NAME`: Cloudinary cloud name
+        - `CLOUDINARY_API_KEY`: Cloudinary API key
+        - `CLOUDINARY_API_SECRET`: Cloudinary API secret
+
+        ## 📦 Project Structure
+
+        ```
+        locallend/
+        ├── backend/          # Spring Boot backend
+        │   ├── src/
+        │   └── pom.xml
+        ├── frontend/         # React frontend
+        │   ├── src/
+        │   └── package.json
+        └── Dockerfile        # Multi-stage build for deployment
+        ```
+
+        ## 🤝 Contributing
+
+        This project is part of an academic project for Object-Oriented Analysis and Design (OOAD) course.
+
+        ## 📄 License
+
+        This project is for educational purposes.
+
+        ---
+
+        **Deployed on Hugging Face Spaces** | Auto-deployed via GitHub Actions
+        EOF
+
+        echo "✅ Created Hugging Face README"
+
+    - name: Install Python and Hugging Face Hub
+      run: |
+        pip install huggingface_hub
+
+    - name: Deploy to Hugging Face Space
+      env:
+        HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+        CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+        CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      run: |
+        python << 'EOF'
+        import os
+        from huggingface_hub import HfApi
+
+        # Initialize the API
+        api = HfApi()
+        token = os.environ.get('HF_TOKEN')
+        repo_id = "${{ env.HF_REPO_ID }}"
+
+        if not token:
+            raise ValueError("❌ HF_TOKEN secret is not set in GitHub repository settings")
+
+        print(f"🚀 Deploying to Hugging Face Space: {repo_id}")
+
+        try:
+            # Try to get space info (to check if it exists)
+            try:
+                space_info = api.space_info(repo_id, token=token)
+                print(f"✅ Space exists: {repo_id}")
+            except Exception:
+                # Space doesn't exist, create it
+                print(f"📝 Creating new Space: {repo_id}")
+                api.create_repo(
+                    repo_id=repo_id,
+                    repo_type="space",
+                    space_sdk="docker",
+                    token=token,
+                    private=False
+                )
+                print(f"✅ Created Space: {repo_id}")
+
+            # Upload Dockerfile
+            print("📤 Uploading Dockerfile...")
+            api.upload_file(
+                path_or_fileobj="Dockerfile",
+                path_in_repo="Dockerfile",
+                repo_id=repo_id,
+                repo_type="space",
+                token=token,
+                commit_message="🐳 Update Dockerfile"
+            )
+            print("✅ Uploaded Dockerfile")
+
+            # Upload README
+            print("📤 Uploading README...")
+            api.upload_file(
+                path_or_fileobj="HF_README.md",
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="space",
+                token=token,
+                commit_message="📝 Update README"
+            )
+            print("✅ Uploaded README")
+
+            # Upload backend folder
+            print("📤 Uploading backend...")
+            api.upload_folder(
+                folder_path="backend",
+                path_in_repo="backend",
+                repo_id=repo_id,
+                repo_type="space",
+                token=token,
+                commit_message="🔧 Update backend"
+            )
+            print("✅ Uploaded backend")
+
+            # Upload frontend folder
+            print("📤 Uploading frontend...")
+            api.upload_folder(
+                folder_path="frontend",
+                path_in_repo="frontend",
+                repo_id=repo_id,
+                repo_type="space",
+                token=token,
+                commit_message="🎨 Update frontend"
+            )
+            print("✅ Uploaded frontend")
+
+            # Set environment variables as secrets
+            print("🔐 Setting environment variables...")
+            env_vars = {
+                'MONGODB_URI': os.environ.get('MONGODB_URI'),
+                'JWT_SECRET': os.environ.get('JWT_SECRET'),
+                'CLOUDINARY_CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+                'CLOUDINARY_API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+                'CLOUDINARY_API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+            }
+
+            for key, value in env_vars.items():
+                if value:
+                    try:
+                        api.add_space_secret(repo_id, key, value, token=token)
+                        print(f"  ✅ Set {key}")
+                    except Exception as e:
+                        print(f"  ⚠️ Could not set {key}: {str(e)}")
+                else:
+                    print(f"  ⚠️ {key} not provided in GitHub secrets")
+
+            print(f"\n🎉 Successfully deployed to: https://huggingface.co/spaces/{repo_id}")
+            print(f"🌐 Your app will be available at: https://{repo_id.replace('/', '-')}.hf.space")
+            print("\n⏳ Note: The space may take a few minutes to build and start.")
+
+        except Exception as e:
+            print(f"❌ Deployment failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+        EOF
+
+    - name: Deployment Summary
+      if: success()
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "🌐 Visit your space at: https://huggingface.co/spaces/${{ env.HF_REPO_ID }}"
+        echo "📊 Monitor the build progress in the Hugging Face Space settings"
