@@ -18,7 +18,8 @@ RUN npm install --legacy-peer-deps
 COPY frontend/ ./
 
 # Set build-time environment variable for API URL
-ARG VITE_API_BASE_URL=/api
+# Empty string because frontend services already include /api prefix in their calls
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Build frontend
