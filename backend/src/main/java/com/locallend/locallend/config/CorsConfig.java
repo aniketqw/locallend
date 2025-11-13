@@ -28,8 +28,12 @@ public class CorsConfig {
         
         // Allow requests from frontend origins
         configuration.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost",          // Production (Nginx on port 80)
+            "http://localhost:80",       // Production (explicit port 80)
             "http://localhost:3000",     // Create React App default
             "http://localhost:5173",     // Vite default port
+            "http://127.0.0.1",          // Production (alternative localhost)
+            "http://127.0.0.1:80",       // Production (alternative localhost port 80)
             "http://127.0.0.1:3000",     // Alternative localhost
             "http://127.0.0.1:5173"      // Alternative localhost
         ));

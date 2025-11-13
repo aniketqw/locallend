@@ -95,7 +95,7 @@ Email: usr2@usr2.com
 Password: user21234
 
 Email: fasd@gmail.com
-Password: 12345678
+Password: fasd@gmail.com
 
 Email:afadsaaftury@gmail.com
 Password:afadsaaftury@gmail.com 

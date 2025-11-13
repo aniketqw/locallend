@@ -13,6 +13,10 @@ RUN npm install --legacy-peer-deps
 # Copy the rest of the application code
 COPY . .
 
+# Accept build argument for API URL
+ARG VITE_API_BASE_URL=http://localhost:8080
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 # Build the application for production
 RUN npm run build
 
