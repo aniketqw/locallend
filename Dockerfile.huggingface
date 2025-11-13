@@ -112,7 +112,7 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo '' >> /app/start.sh && \
     echo '# Start nginx in background' >> /app/start.sh && \
     echo 'echo "=== Starting nginx on 0.0.0.0:7860 ==="' >> /app/start.sh && \
-    echo 'nginx &' >> /app/start.sh && \
+    echo 'nginx -g "daemon off;" &' >> /app/start.sh && \
     echo 'NGINX_PID=$!' >> /app/start.sh && \
     echo 'echo "Nginx started with PID: $NGINX_PID"' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
@@ -123,13 +123,13 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'echo "=== Verifying nginx is responding ==="' >> /app/start.sh && \
     echo 'ps aux | grep nginx | grep -v grep || echo "WARNING: nginx process not found!"' >> /app/start.sh && \
     echo 'netstat -tulpn | grep :7860 || echo "WARNING: Port 7860 not listening!"' >> /app/start.sh && \
-    echo 'curl -s -o /dev/null -w "Localhost:7860 HTTP Status: %{http_code}\n" http://localhost:7860/ || echo "WARNING: Nginx not responding on localhost:7860!"' >> /app/start.sh && \
-    echo 'curl -s -o /dev/null -w "0.0.0.0:7860 HTTP Status: %{http_code}\n" http://0.0.0.0:7860/ || echo "WARNING: Nginx not responding on 0.0.0.0:7860!"' >> /app/start.sh && \
+    echo 'curl -s -o /dev/null -w "Localhost:7860 HTTP Status: %{http_code}\n" http://localhost:7860/health || echo "WARNING: Nginx not responding on localhost:7860!"' >> /app/start.sh && \
+    echo 'curl -s -o /dev/null -w "0.0.0.0:7860 HTTP Status: %{http_code}\n" http://0.0.0.0:7860/health || echo "WARNING: Nginx not responding on 0.0.0.0:7860!"' >> /app/start.sh && \
     echo 'echo "=== Nginx verification complete ==="' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
     echo '# Start Spring Boot application in foreground' >> /app/start.sh && \
-    echo 'echo "=== Starting Spring Boot on port 8080 ==="' >> /app/start.sh && \
-    echo 'exec java -jar /app/backend.jar' >> /app/start.sh && \
+    echo 'echo "=== Starting Spring Boot on 0.0.0.0:8080 ==="' >> /app/start.sh && \
+    echo 'exec java -Dserver.address=0.0.0.0 -Dserver.port=8080 -jar /app/backend.jar' >> /app/start.sh && \
     chmod +x /app/start.sh
 
 # Hugging Face Spaces expects the app to run on port 7860
