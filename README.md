@@ -96,6 +96,9 @@ Password: user21234
 
 Email: fasd@gmail.com
 Password: 12345678
+
+Email:afadsaaftury@gmail.com
+Password:afadsaaftury@gmail.com 
 ```
 
 ## 🛠️ Manual Development Setup
