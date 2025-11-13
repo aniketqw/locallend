@@ -69,7 +69,7 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ onBack, se
         // 1) If user typed a term, try the dedicated search endpoint
         if (term) {
           const qp = new URLSearchParams();
-          qp.append('query', term);
+          qp.append('q', term);  // Backend expects 'q' not 'query'
           // Only pass categoryId if it looks like a real id (not display name)
           if (selectedCategory && selectedCategory.length > 12) {
             qp.append('categoryId', selectedCategory);

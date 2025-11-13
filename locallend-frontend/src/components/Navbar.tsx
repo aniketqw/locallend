@@ -25,12 +25,13 @@ import {
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { categoryService } from '../services/categoryService';
+import type { Category } from '../types';
 
 export const Navbar: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -40,7 +41,17 @@ export const Navbar: React.FC = () => {
     const fetchCategories = async () => {
       try {
         const response = await categoryService.getCategories();
-        setCategories(response.data || []);
+        console.log('Categories API response:', response);
+        
+        // The API returns { data: Category[], success: true, count: number, message: string }
+        if (response && response.data) {
+          console.log('Categories from response.data:', response.data);
+          console.log('Number of categories:', response.data.length);
+          setCategories(response.data);
+        } else {
+          console.warn('No categories data in response:', response);
+          setCategories([]);
+        }
       } catch (error) {
         console.error('Failed to fetch categories:', error);
       }
