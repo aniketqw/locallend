@@ -166,8 +166,6 @@ const App = () => {
               <>
                 <span style={{ color: 'white', fontSize: '14px', padding: '8px 12px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }}>Welcome, {user.name}!</span>
                 <button onClick={handleDashboard} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>Dashboard</button>
-                <button onClick={handleMyItems} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>My Items</button>
-                <button onClick={handleMyBookings} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>Bookings</button>
                 <button onClick={handleLogout} style={{ padding: '8px 16px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}>Logout</button>
               </>
             ) : (
