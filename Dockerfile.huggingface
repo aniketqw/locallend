@@ -51,9 +51,9 @@ FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
 
-# Install nginx for serving frontend
+# Install nginx and diagnostic tools for serving frontend
 RUN apt-get update && \
-    apt-get install -y nginx && \
+    apt-get install -y nginx curl netcat-openbsd net-tools && \
     rm -rf /var/lib/apt/lists/*
 
 # Remove default nginx configuration to avoid conflicts
@@ -62,6 +62,13 @@ RUN rm -f /etc/nginx/sites-enabled/default && \
 
 # Copy built frontend from frontend-builder stage
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+
+# Verify frontend files were copied and fix permissions
+RUN echo "=== Verifying frontend build ===" && \
+    ls -la /usr/share/nginx/html && \
+    echo "=== File count: $(find /usr/share/nginx/html -type f | wc -l) ===" && \
+    chmod -R 755 /usr/share/nginx/html && \
+    chown -R root:root /usr/share/nginx/html
 
 # Copy nginx configuration directly to sites-available and enable it
 COPY frontend/nginx.conf /etc/nginx/sites-available/locallend.conf
@@ -75,22 +82,38 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
     echo 'echo "=== Starting LocalLend Application ==="' >> /app/start.sh && \
+    echo 'echo "=== Diagnostic Information ==="' >> /app/start.sh && \
+    echo 'echo "Hostname: $(hostname)"' >> /app/start.sh && \
+    echo 'echo "IP Address: $(hostname -i)"' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Verify frontend files' >> /app/start.sh && \
+    echo 'echo "=== Frontend Files Check ==="' >> /app/start.sh && \
+    echo 'ls -la /usr/share/nginx/html/ | head -20' >> /app/start.sh && \
+    echo 'echo "Total files: $(find /usr/share/nginx/html -type f | wc -l)"' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
     echo '# Test nginx configuration' >> /app/start.sh && \
-    echo 'echo "Testing nginx configuration..."' >> /app/start.sh && \
+    echo 'echo "=== Testing nginx configuration ==="' >> /app/start.sh && \
     echo 'nginx -t' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
     echo '# Start nginx in background' >> /app/start.sh && \
-    echo 'echo "Starting nginx on port 7860..."' >> /app/start.sh && \
+    echo 'echo "=== Starting nginx on 0.0.0.0:7860 ==="' >> /app/start.sh && \
     echo 'nginx &' >> /app/start.sh && \
     echo 'NGINX_PID=$!' >> /app/start.sh && \
     echo 'echo "Nginx started with PID: $NGINX_PID"' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
-    echo '# Wait a moment for nginx to start' >> /app/start.sh && \
-    echo 'sleep 2' >> /app/start.sh && \
+    echo '# Wait for nginx to fully start' >> /app/start.sh && \
+    echo 'sleep 3' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Verify nginx is running and responding' >> /app/start.sh && \
+    echo 'echo "=== Verifying nginx is responding ==="' >> /app/start.sh && \
+    echo 'ps aux | grep nginx | grep -v grep || echo "WARNING: nginx process not found!"' >> /app/start.sh && \
+    echo 'netstat -tulpn | grep :7860 || echo "WARNING: Port 7860 not listening!"' >> /app/start.sh && \
+    echo 'curl -s -o /dev/null -w "Localhost:7860 HTTP Status: %{http_code}\n" http://localhost:7860/ || echo "WARNING: Nginx not responding on localhost:7860!"' >> /app/start.sh && \
+    echo 'curl -s -o /dev/null -w "0.0.0.0:7860 HTTP Status: %{http_code}\n" http://0.0.0.0:7860/ || echo "WARNING: Nginx not responding on 0.0.0.0:7860!"' >> /app/start.sh && \
+    echo 'echo "=== Nginx verification complete ==="' >> /app/start.sh && \
     echo '' >> /app/start.sh && \
     echo '# Start Spring Boot application in foreground' >> /app/start.sh && \
-    echo 'echo "Starting Spring Boot on port 8080..."' >> /app/start.sh && \
+    echo 'echo "=== Starting Spring Boot on port 8080 ==="' >> /app/start.sh && \
     echo 'exec java -jar /app/backend.jar' >> /app/start.sh && \
     chmod +x /app/start.sh
 
