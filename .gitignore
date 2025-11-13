@@ -33,6 +33,13 @@ build/
 ### VS Code ###
 .vscode/
 
+### Environment Variables ###
+.env
+.env.local
+.env.*.local
+**/.env
+locallend-frontend/.env
+
 ### Documentation and Scripts ###
 # Implementation documentation
 ISSUE_*_IMPLEMENTATION.md

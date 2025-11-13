@@ -20,9 +20,13 @@ services:
       - "8080:8080"
     depends_on:
       - mongo
+    env_file:
+      - .env
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/locallend
       SPRING_PROFILES_ACTIVE: prod
+      # These will override .env if needed
+      MONGODB_URI: mongodb://mongo:27017/locallend
 
 volumes:
   mongo_data:
