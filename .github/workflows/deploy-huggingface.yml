@@ -50,6 +50,11 @@ jobs:
         # Copy Dockerfile (simple version)
         cp Dockerfile.huggingface Dockerfile
 
+        # Create .gitattributes for HF Space
+        cat > HF_GITATTRIBUTES << 'EOF'
+        *.jar filter=lfs diff=lfs merge=lfs -text
+        EOF
+
         echo "✅ Prepared deployment files"
         echo "JAR file: $(ls -lh target/*.jar)"
 
@@ -195,6 +200,44 @@ jobs:
                     private=False
                 )
                 print(f"✅ Created Space: {repo_id}")
+
+            # Delete old backend and frontend folders (cleanup from previous architecture)
+            print("🧹 Cleaning up old folders...")
+            try:
+                api.delete_folder(
+                    path_in_repo="backend",
+                    repo_id=repo_id,
+                    repo_type="space",
+                    token=token,
+                    commit_message="🗑️ Remove old backend folder"
+                )
+                print("✅ Deleted old backend folder")
+            except Exception as e:
+                print(f"ℹ️ Backend folder not found or already deleted: {str(e)}")
+
+            try:
+                api.delete_folder(
+                    path_in_repo="frontend",
+                    repo_id=repo_id,
+                    repo_type="space",
+                    token=token,
+                    commit_message="🗑️ Remove old frontend folder"
+                )
+                print("✅ Deleted old frontend folder")
+            except Exception as e:
+                print(f"ℹ️ Frontend folder not found or already deleted: {str(e)}")
+
+            # Upload .gitattributes
+            print("📤 Uploading .gitattributes...")
+            api.upload_file(
+                path_or_fileobj="HF_GITATTRIBUTES",
+                path_in_repo=".gitattributes",
+                repo_id=repo_id,
+                repo_type="space",
+                token=token,
+                commit_message="📄 Update .gitattributes"
+            )
+            print("✅ Uploaded .gitattributes")
 
             # Upload Dockerfile
             print("📤 Uploading Dockerfile...")
