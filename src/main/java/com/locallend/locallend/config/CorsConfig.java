@@ -31,7 +31,8 @@ public class CorsConfig {
             "http://localhost:3000",     // Create React App default
             "http://localhost:5173",     // Vite default port
             "http://127.0.0.1:3000",     // Alternative localhost
-            "http://127.0.0.1:5173"      // Alternative localhost
+            "http://127.0.0.1:5173",
+            "https://v0-community-sharing-platform.vercel.app"// Alternative localhost
         ));
         
         // Allow specific HTTP methods
