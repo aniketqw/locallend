@@ -31,17 +31,27 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    - name: Prepare Hugging Face Dockerfile
-      run: |
-        # Copy the Hugging Face specific Dockerfile
-        cp Dockerfile.huggingface Dockerfile
-        echo "✅ Prepared Dockerfile for Hugging Face"
-
-    - name: Build Spring Boot Application
+    - name: Build Spring Boot Application with Static Frontend
       run: |
         cd backend
         mvn clean package -DskipTests
         echo "✅ Backend build successful (includes static frontend resources)"
+
+        # List static resources in JAR to verify
+        echo "=== Verifying static resources in JAR ==="
+        jar -tf target/*.jar | grep "BOOT-INF/classes/static/" || echo "WARNING: No static resources found!"
+
+    - name: Prepare Deployment Files
+      run: |
+        # Create target directory for HF upload
+        mkdir -p target
+        cp backend/target/*.jar target/
+
+        # Copy Dockerfile (simple version)
+        cp Dockerfile.huggingface Dockerfile
+
+        echo "✅ Prepared deployment files"
+        echo "JAR file: $(ls -lh target/*.jar)"
 
     - name: Create README.md for Hugging Face Space
       run: |
@@ -210,19 +220,17 @@ jobs:
             )
             print("✅ Uploaded README")
 
-            # Upload backend folder (exclude target, .class files)
-            # Note: Static frontend files are already included in src/main/resources/static/
-            print("📤 Uploading backend...")
+            # Upload target folder with JAR file
+            print("📤 Uploading JAR file...")
             api.upload_folder(
-                folder_path="backend",
-                path_in_repo="backend",
+                folder_path="target",
+                path_in_repo="target",
                 repo_id=repo_id,
                 repo_type="space",
                 token=token,
-                ignore_patterns=["target/*", "*.class", ".mvn/*"],
-                commit_message="🔧 Update backend with static frontend"
+                commit_message="🔧 Update JAR with static frontend"
             )
-            print("✅ Uploaded backend (includes static frontend resources)")
+            print("✅ Uploaded JAR file (includes static frontend resources)")
 
             # Set environment variables as secrets
             print("🔐 Setting environment variables...")

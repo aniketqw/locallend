@@ -1,69 +1,16 @@
-# Dockerfile for LocalLend - Spring Boot with Static HTML/CSS/JS Frontend
-# This builds a single JAR with embedded static frontend resources
-
-# ============================================
-# Stage 1: Build Spring Boot Application
-# ============================================
-FROM maven:3.9-eclipse-temurin-17 AS backend-builder
+FROM openjdk:17-jdk-slim
 
 WORKDIR /app
 
-# Copy backend pom.xml
-COPY backend/pom.xml ./
-
-# Download dependencies for caching
-RUN mvn dependency:go-offline -B || true
-
-# Copy backend source (which includes static resources in src/main/resources/static/)
-COPY backend/src ./src
-
-# Build backend with static resources included
-RUN mvn clean package -DskipTests
-
-# ============================================
-# Stage 2: Production Runtime
-# ============================================
-FROM eclipse-temurin:17-jre-jammy
-
-WORKDIR /app
-
-# Install utilities for debugging
-RUN apt-get update && \
-    apt-get install -y curl netcat-openbsd net-tools && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy the backend JAR (contains static resources)
-COPY --from=backend-builder /app/target/*.jar /app/backend.jar
+# Copy the jar file (built in GitHub Actions)
+COPY target/*.jar app.jar
 
 # Expose port 7860 (required by Hugging Face Spaces)
 EXPOSE 7860
-
-# Create startup script
-RUN echo '#!/bin/bash' > /app/startup.sh && \
-    echo 'echo "===== Application Startup at $(date) ====="' >> /app/startup.sh && \
-    echo 'echo ""' >> /app/startup.sh && \
-    echo 'echo "=== Starting LocalLend Application ==="' >> /app/startup.sh && \
-    echo 'echo "=== Diagnostic Information ==="' >> /app/startup.sh && \
-    echo 'echo "Hostname: $(hostname)"' >> /app/startup.sh && \
-    echo 'echo "IP Address: $(hostname -I)"' >> /app/startup.sh && \
-    echo 'echo ""' >> /app/startup.sh && \
-    echo 'echo "=== Static Resources Check ==="' >> /app/startup.sh && \
-    echo 'if [ -f /app/backend.jar ]; then' >> /app/startup.sh && \
-    echo '    echo "JAR file exists"' >> /app/startup.sh && \
-    echo '    unzip -l /app/backend.jar | grep "BOOT-INF/classes/static/" | head -10 || echo "No static resources found in JAR"' >> /app/startup.sh && \
-    echo 'fi' >> /app/startup.sh && \
-    echo 'echo ""' >> /app/startup.sh && \
-    echo 'echo "=== Starting Spring Boot on 0.0.0.0:7860 ==="' >> /app/startup.sh && \
-    echo 'echo ""' >> /app/startup.sh && \
-    echo 'exec java -Dserver.address=0.0.0.0 \\' >> /app/startup.sh && \
-    echo '     -Dserver.port=7860 \\' >> /app/startup.sh && \
-    echo '     -Dspring.profiles.active=prod \\' >> /app/startup.sh && \
-    echo '     -jar /app/backend.jar' >> /app/startup.sh && \
-    chmod +x /app/startup.sh
 
 # Set environment variables
 ENV SERVER_PORT=7860
 ENV SPRING_PROFILES_ACTIVE=prod
 
-# Start Spring Boot with embedded static resources
-CMD ["/app/startup.sh"]
+# Run the application
+ENTRYPOINT ["java", "-Dserver.address=0.0.0.0", "-Dserver.port=7860", "-jar", "/app/app.jar"]
