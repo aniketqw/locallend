@@ -17,12 +17,10 @@ RUN npm install --legacy-peer-deps
 # Copy frontend source
 COPY frontend/ ./
 
-# Set build-time environment variable for API URL
-# Empty string because frontend services already include /api prefix in their calls
-ARG VITE_API_BASE_URL=
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-
 # Build frontend with error checking
+# Note: VITE_API_BASE_URL is intentionally NOT set here
+# The frontend will use its default fallback: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+# Since we're in production, the frontend will make API calls to /api/* which nginx proxies to localhost:8080
 RUN echo "=== Building frontend with Vite ===" && \
     npm run build 2>&1 | tee /tmp/build.log && \
     echo "=== Build complete ===" && \
