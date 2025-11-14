@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalLend - Lend and Borrow Locally</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">LocalLend</div>
+            <div class="nav-links" id="navLinks">
+                <a href="#" onclick="showPage('home')">Home</a>
+                <a href="#" onclick="showPage('browse')" id="browseLink">Browse</a>
+                <a href="#" onclick="showPage('my-items')" id="myItemsLink" style="display:none;">My Items</a>
+                <a href="#" onclick="showPage('my-bookings')" id="myBookingsLink" style="display:none;">My Bookings</a>
+                <a href="#" onclick="showPage('login')" id="loginLink">Login</a>
+                <a href="#" onclick="showPage('register')" id="registerLink">Register</a>
+                <a href="#" onclick="logout()" id="logoutLink" style="display:none;">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container main-content">
+
+        <!-- Home Page -->
+        <div id="homePage" class="page active">
+            <div class="hero">
+                <h1>Welcome to LocalLend</h1>
+                <p>Lend and borrow items within your local community</p>
+                <button onclick="showPage('browse')" class="btn btn-primary">Browse Items</button>
+                <button onclick="showPage('login')" class="btn btn-secondary" id="heroLoginBtn">Get Started</button>
+            </div>
+
+            <div class="features">
+                <div class="feature-card">
+                    <h3>🏠 Local</h3>
+                    <p>Connect with people in your community</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💰 Save Money</h3>
+                    <p>Borrow instead of buying</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🌱 Sustainable</h3>
+                    <p>Reduce waste by sharing</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Page -->
+        <div id="loginPage" class="page">
+            <div class="auth-container">
+                <h2>Login</h2>
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="loginUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <div class="error-message" id="loginError"></div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <p class="auth-switch">Don't have an account? <a href="#" onclick="showPage('register')">Register</a></p>
+            </div>
+        </div>
+
+        <!-- Register Page -->
+        <div id="registerPage" class="page">
+            <div class="auth-container">
+                <h2>Register</h2>
+                <form id="registerForm" onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="registerUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="registerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" id="registerPhone" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" id="registerAddress" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="registerPassword" required minlength="6">
+                    </div>
+                    <div class="error-message" id="registerError"></div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+                <p class="auth-switch">Already have an account? <a href="#" onclick="showPage('login')">Login</a></p>
+            </div>
+        </div>
+
+        <!-- Browse Items Page -->
+        <div id="browsePage" class="page">
+            <h2>Browse Items</h2>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search items..." onkeyup="searchItems()">
+                <select id="categoryFilter" onchange="loadItems()">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div class="items-grid" id="itemsGrid">
+                <div class="loading">Loading items...</div>
+            </div>
+        </div>
+
+        <!-- My Items Page -->
+        <div id="myItemsPage" class="page">
+            <div class="page-header">
+                <h2>My Items</h2>
+                <button onclick="showPage('add-item')" class="btn btn-primary">Add Item</button>
+            </div>
+            <div class="items-grid" id="myItemsGrid">
+                <div class="loading">Loading your items...</div>
+            </div>
+        </div>
+
+        <!-- Add Item Page -->
+        <div id="addItemPage" class="page">
+            <div class="auth-container">
+                <h2>Add New Item</h2>
+                <form id="addItemForm" onsubmit="handleAddItem(event)">
+                    <div class="form-group">
+                        <label>Item Name</label>
+                        <input type="text" id="itemName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="itemDescription" required rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="itemCategory" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Price Per Day ($)</label>
+                        <input type="number" id="itemPrice" required min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Image URL</label>
+                        <input type="url" id="itemImage" placeholder="https://...">
+                    </div>
+                    <div class="error-message" id="addItemError"></div>
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                    <button type="button" onclick="showPage('my-items')" class="btn btn-secondary">Cancel</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- My Bookings Page -->
+        <div id="myBookingsPage" class="page">
+            <h2>My Bookings</h2>
+            <div class="bookings-list" id="bookingsList">
+                <div class="loading">Loading bookings...</div>
+            </div>
+        </div>
+
+        <!-- Item Detail Page -->
+        <div id="itemDetailPage" class="page">
+            <div id="itemDetailContent"></div>
+        </div>
+
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

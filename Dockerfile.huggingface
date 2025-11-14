@@ -1,142 +1,69 @@
-# Multi-stage Dockerfile for Hugging Face Spaces deployment
-# Combines frontend and backend into a single container
+# Dockerfile for LocalLend - Spring Boot with Static HTML/CSS/JS Frontend
+# This builds a single JAR with embedded static frontend resources
 
 # ============================================
-# Stage 1: Build Frontend
+# Stage 1: Build Spring Boot Application
 # ============================================
-FROM node:20 AS frontend-builder
+FROM maven:3.9-eclipse-temurin-17 AS backend-builder
 
-WORKDIR /app/frontend
+WORKDIR /app
 
-# Copy frontend package files
-COPY frontend/package*.json ./
-
-# Install dependencies
-RUN npm install --legacy-peer-deps
-
-# Copy frontend source
-COPY frontend/ ./
-
-# Build frontend with error checking
-# Note: VITE_API_BASE_URL is intentionally NOT set here
-# The frontend will use its default fallback: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-# Since we're in production, the frontend will make API calls to /api/* which nginx proxies to localhost:8080
-RUN echo "=== Building frontend with Vite ===" && \
-    npm run build 2>&1 | tee /tmp/build.log && \
-    echo "=== Build complete ===" && \
-    echo "=== Verifying build output ===" && \
-    ls -laR dist/ && \
-    echo "=== Checking assets folder ===" && \
-    ls -la dist/assets/ && \
-    ASSET_COUNT=$(find dist/assets -type f | wc -l) && \
-    echo "Assets folder contains $ASSET_COUNT files" && \
-    if [ "$ASSET_COUNT" -lt 1 ]; then \
-        echo "ERROR: Frontend build failed - no assets generated!" && \
-        echo "=== Build log ===" && \
-        cat /tmp/build.log && \
-        exit 1; \
-    fi && \
-    echo "=== Frontend build verification passed ==="
-
-# ============================================
-# Stage 2: Build Backend
-# ============================================
-FROM maven:3.9.6-eclipse-temurin-17 AS backend-builder
-
-WORKDIR /app/backend
-
-# Copy pom.xml first for dependency caching
+# Copy backend pom.xml
 COPY backend/pom.xml ./
 
-# Download dependencies
-RUN mvn dependency:go-offline -B
+# Download dependencies for caching
+RUN mvn dependency:go-offline -B || true
 
-# Copy backend source
+# Copy backend source (which includes static resources in src/main/resources/static/)
 COPY backend/src ./src
 
-# Build backend (skip tests for faster build)
+# Build backend with static resources included
 RUN mvn clean package -DskipTests
 
 # ============================================
-# Stage 3: Production Runtime
+# Stage 2: Production Runtime
 # ============================================
 FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
 
-# Install nginx and diagnostic tools for serving frontend
+# Install utilities for debugging
 RUN apt-get update && \
-    apt-get install -y nginx curl netcat-openbsd net-tools && \
+    apt-get install -y curl netcat-openbsd net-tools && \
     rm -rf /var/lib/apt/lists/*
 
-# Remove default nginx configuration to avoid conflicts
-RUN rm -f /etc/nginx/sites-enabled/default && \
-    rm -f /etc/nginx/sites-available/default
+# Copy the backend JAR (contains static resources)
+COPY --from=backend-builder /app/target/*.jar /app/backend.jar
 
-# Copy built frontend from frontend-builder stage
-COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
-
-# Verify frontend files were copied and fix permissions
-RUN echo "=== Verifying frontend build ===" && \
-    ls -la /usr/share/nginx/html && \
-    echo "=== File count: $(find /usr/share/nginx/html -type f | wc -l) ===" && \
-    chmod -R 755 /usr/share/nginx/html && \
-    chown -R root:root /usr/share/nginx/html
-
-# Copy nginx configuration directly to sites-available and enable it
-COPY frontend/nginx.conf /etc/nginx/sites-available/locallend.conf
-RUN ln -s /etc/nginx/sites-available/locallend.conf /etc/nginx/sites-enabled/locallend.conf
-
-# Copy built backend JAR
-COPY --from=backend-builder /app/backend/target/*.jar /app/backend.jar
-
-# Create a startup script using echo to avoid heredoc parsing issues
-RUN echo '#!/bin/bash' > /app/start.sh && \
-    echo 'set -e' >> /app/start.sh && \
-    echo '' >> /app/start.sh && \
-    echo 'echo "=== Starting LocalLend Application ==="' >> /app/start.sh && \
-    echo 'echo "=== Diagnostic Information ==="' >> /app/start.sh && \
-    echo 'echo "Hostname: $(hostname)"' >> /app/start.sh && \
-    echo 'echo "IP Address: $(hostname -i)"' >> /app/start.sh && \
-    echo '' >> /app/start.sh && \
-    echo '# Verify frontend files' >> /app/start.sh && \
-    echo 'echo "=== Frontend Files Check ==="' >> /app/start.sh && \
-    echo 'ls -la /usr/share/nginx/html/ | head -20' >> /app/start.sh && \
-    echo 'echo "Total files: $(find /usr/share/nginx/html -type f | wc -l)"' >> /app/start.sh && \
-    echo '' >> /app/start.sh && \
-    echo '# Test nginx configuration' >> /app/start.sh && \
-    echo 'echo "=== Testing nginx configuration ==="' >> /app/start.sh && \
-    echo 'nginx -t' >> /app/start.sh && \
-    echo '' >> /app/start.sh && \
-    echo '# Start nginx in background' >> /app/start.sh && \
-    echo 'echo "=== Starting nginx on 0.0.0.0:7860 ==="' >> /app/start.sh && \
-    echo 'nginx -g "daemon off;" &' >> /app/start.sh && \
-    echo 'NGINX_PID=$!' >> /app/start.sh && \
-    echo 'echo "Nginx started with PID: $NGINX_PID"' >> /app/start.sh && \
-    echo '' >> /app/start.sh && \
-    echo '# Wait for nginx to fully start' >> /app/start.sh && \
-    echo 'sleep 3' >> /app/start.sh && \
-    echo '' >> /app/start.sh && \
-    echo '# Verify nginx is running and responding' >> /app/start.sh && \
-    echo 'echo "=== Verifying nginx is responding ==="' >> /app/start.sh && \
-    echo 'ps aux | grep nginx | grep -v grep || echo "WARNING: nginx process not found!"' >> /app/start.sh && \
-    echo 'netstat -tulpn | grep :7860 || echo "WARNING: Port 7860 not listening!"' >> /app/start.sh && \
-    echo 'curl -s -o /dev/null -w "Localhost:7860 HTTP Status: %{http_code}\n" http://localhost:7860/health || echo "WARNING: Nginx not responding on localhost:7860!"' >> /app/start.sh && \
-    echo 'curl -s -o /dev/null -w "0.0.0.0:7860 HTTP Status: %{http_code}\n" http://0.0.0.0:7860/health || echo "WARNING: Nginx not responding on 0.0.0.0:7860!"' >> /app/start.sh && \
-    echo 'echo "=== Nginx verification complete ==="' >> /app/start.sh && \
-    echo '' >> /app/start.sh && \
-    echo '# Start Spring Boot application in foreground' >> /app/start.sh && \
-    echo 'echo "=== Starting Spring Boot on 0.0.0.0:8080 ==="' >> /app/start.sh && \
-    echo 'exec java -Dserver.address=0.0.0.0 -Dserver.port=8080 -jar /app/backend.jar' >> /app/start.sh && \
-    chmod +x /app/start.sh
-
-# Hugging Face Spaces expects the app to run on port 7860
-# Nginx will listen on 7860 and proxy to backend on 8080
+# Expose port 7860 (required by Hugging Face Spaces)
 EXPOSE 7860
 
+# Create startup script
+RUN echo '#!/bin/bash' > /app/startup.sh && \
+    echo 'echo "===== Application Startup at $(date) ====="' >> /app/startup.sh && \
+    echo 'echo ""' >> /app/startup.sh && \
+    echo 'echo "=== Starting LocalLend Application ==="' >> /app/startup.sh && \
+    echo 'echo "=== Diagnostic Information ==="' >> /app/startup.sh && \
+    echo 'echo "Hostname: $(hostname)"' >> /app/startup.sh && \
+    echo 'echo "IP Address: $(hostname -I)"' >> /app/startup.sh && \
+    echo 'echo ""' >> /app/startup.sh && \
+    echo 'echo "=== Static Resources Check ==="' >> /app/startup.sh && \
+    echo 'if [ -f /app/backend.jar ]; then' >> /app/startup.sh && \
+    echo '    echo "JAR file exists"' >> /app/startup.sh && \
+    echo '    unzip -l /app/backend.jar | grep "BOOT-INF/classes/static/" | head -10 || echo "No static resources found in JAR"' >> /app/startup.sh && \
+    echo 'fi' >> /app/startup.sh && \
+    echo 'echo ""' >> /app/startup.sh && \
+    echo 'echo "=== Starting Spring Boot on 0.0.0.0:7860 ==="' >> /app/startup.sh && \
+    echo 'echo ""' >> /app/startup.sh && \
+    echo 'exec java -Dserver.address=0.0.0.0 \\' >> /app/startup.sh && \
+    echo '     -Dserver.port=7860 \\' >> /app/startup.sh && \
+    echo '     -Dspring.profiles.active=prod \\' >> /app/startup.sh && \
+    echo '     -jar /app/backend.jar' >> /app/startup.sh && \
+    chmod +x /app/startup.sh
+
 # Set environment variables
-ENV SERVER_PORT=8080
+ENV SERVER_PORT=7860
 ENV SPRING_PROFILES_ACTIVE=prod
 
-# Start both nginx and Spring Boot
-CMD ["/app/start.sh"]
+# Start Spring Boot with embedded static resources
+CMD ["/app/startup.sh"]
