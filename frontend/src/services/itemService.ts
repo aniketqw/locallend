@@ -55,6 +55,18 @@ export const itemService = {
     });
   },
 
+  // Get current user's items with pagination
+  getMyItems: async (userId: string, page: number = 0, size: number = 10): Promise<ApiResponse<Item[]>> => {
+    const queryParams = new URLSearchParams();
+    queryParams.append('page', page.toString());
+    queryParams.append('size', size.toString());
+
+    const response = await api.get(`/api/items/my-items?${queryParams.toString()}`, {
+      headers: addUserIdHeader(userId)
+    });
+    return response;
+  },
+
   // Update item status - using toggle endpoint only
   updateItemStatus: async (itemId: string, _status: ItemStatus, userId: string): Promise<Item> => {
     // Note: toggle endpoint ignores the status parameter and just flips current status

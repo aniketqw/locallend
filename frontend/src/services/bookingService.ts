@@ -40,9 +40,10 @@ export const bookingService = {
     return response;
   },
 
-  // Approve booking (owner)
-  approveBooking: async (bookingId: string, ownerId: string): Promise<Booking> => {
-    const response = await api.patch(`/api/bookings/${bookingId}/approve`, null, {
+  // Confirm booking (owner approves)
+  confirmBooking: async (bookingId: string, ownerId: string, ownerNotes?: string): Promise<Booking> => {
+    const body = ownerNotes ? { ownerNotes } : {};
+    const response = await api.patch(`/api/bookings/${bookingId}/confirm`, body, {
       headers: addUserIdHeader(ownerId)
     });
     return response;
@@ -56,17 +57,33 @@ export const bookingService = {
     return response;
   },
 
-  // Start booking (borrower)
-  startBooking: async (bookingId: string, borrowerId: string): Promise<Booking> => {
-    const response = await api.patch(`/api/bookings/${bookingId}/start`, null, {
+  // Activate booking (borrower picks up item)
+  activateBooking: async (
+    bookingId: string,
+    borrowerId: string,
+    options?: {
+      actualStartDate?: string;
+      pickupNotes?: string;
+      depositPaid?: boolean;
+    }
+  ): Promise<Booking> => {
+    const response = await api.patch(`/api/bookings/${bookingId}/activate`, options || {}, {
       headers: addUserIdHeader(borrowerId)
     });
     return response;
   },
 
-  // Complete booking (borrower or owner)
-  completeBooking: async (bookingId: string, userId: string): Promise<Booking> => {
-    const response = await api.patch(`/api/bookings/${bookingId}/complete`, null, {
+  // Complete booking (borrower returns item)
+  completeBooking: async (
+    bookingId: string,
+    userId: string,
+    options?: {
+      actualEndDate?: string;
+      returnNotes?: string;
+      returnCondition?: string;
+    }
+  ): Promise<Booking> => {
+    const response = await api.patch(`/api/bookings/${bookingId}/complete`, options || {}, {
       headers: addUserIdHeader(userId)
     });
     return response;
@@ -76,6 +93,14 @@ export const bookingService = {
   cancelBooking: async (bookingId: string, reason: string, userId: string): Promise<Booking> => {
     const response = await api.patch(`/api/bookings/${bookingId}/cancel`, { reason }, {
       headers: addUserIdHeader(userId)
+    });
+    return response;
+  },
+
+  // Get bookings for items I own (as owner) - using new endpoint
+  getMyOwnedBookings: async (ownerId: string): Promise<ApiResponse<Booking[]>> => {
+    const response = await api.get('/api/bookings/my-owned', {
+      headers: addUserIdHeader(ownerId)
     });
     return response;
   }

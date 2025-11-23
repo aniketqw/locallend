@@ -1,7 +1,13 @@
 package com.locallend.locallend.model;
 
 import com.locallend.locallend.model.enums.BookingStatus;
+import com.locallend.locallend.state.booking.BookingState;
+import com.locallend.locallend.state.booking.BookingStateMachine;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
@@ -15,6 +21,8 @@ import java.util.Objects;
 /**
  * Booking entity representing a reservation/borrowing transaction in LocalLend platform.
  * Manages the complete lifecycle from request to completion.
+ *
+ * Enhanced with State Pattern support for better state management.
  */
 @Document(collection = "bookings")
 @CompoundIndex(def = "{'borrower_id': 1, 'status': 1}")
@@ -22,7 +30,19 @@ import java.util.Objects;
 @CompoundIndex(def = "{'item_id': 1, 'status': 1}")
 @CompoundIndex(def = "{'status': 1, 'created_date': -1}")
 @CompoundIndex(def = "{'start_date': 1, 'end_date': 1}")
+@Builder(toBuilder = true)
+@AllArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+@NoArgsConstructor
 public class Booking {
+
+    // State Pattern support - not persisted to database (excluded from builder)
+    @Transient
+    @Builder.Default
+    private BookingState currentState = null;
+
+    @Transient
+    @Builder.Default
+    private BookingStateMachine stateMachine = null;
 
     @Id
     private String id;
@@ -56,6 +76,7 @@ public class Booking {
 
     @Indexed
     @NotNull(message = "Booking status is required")
+    @Builder.Default
     private BookingStatus status = BookingStatus.PENDING;
 
     @Field("start_date")
@@ -83,9 +104,11 @@ public class Booking {
 
     @DecimalMin(value = "0.0", message = "Deposit amount cannot be negative")
     @Field("deposit_amount")
+    @Builder.Default
     private Double depositAmount = 0.0;
 
     @Field("deposit_paid")
+    @Builder.Default
     private Boolean depositPaid = false;
 
     @Field("created_date")
@@ -111,6 +134,7 @@ public class Booking {
     private String cancellationReason;
 
     @Field("is_rated")
+    @Builder.Default
     private Boolean isRated = false;
 
     @Min(value = 1, message = "Duration must be at least 1 day")
@@ -118,79 +142,8 @@ public class Booking {
     @Field("duration_days")
     private Integer durationDays;
 
-    public Booking() {
-        this.createdDate = LocalDateTime.now();
-        this.updatedDate = LocalDateTime.now();
-    }
-
-    public Booking(Item item, User borrower, User owner, LocalDateTime startDate, LocalDateTime endDate) {
-        this();
-        this.item = item;
-        this.itemId = item != null ? item.getId() : null;
-        this.borrower = borrower;
-        this.borrowerId = borrower != null ? borrower.getId() : null;
-        this.owner = owner;
-        this.ownerId = owner != null ? owner.getId() : null;
-        this.startDate = startDate;
-        this.endDate = endDate;
-        this.calculateDuration();
-    }
-
-    public void confirm(String ownerNotes) {
-        if (!this.status.canBeConfirmed()) {
-            throw new IllegalStateException("Cannot confirm booking in status: " + this.status);
-        }
-        this.status = BookingStatus.CONFIRMED;
-        this.ownerNotes = ownerNotes;
-        this.confirmedDate = LocalDateTime.now();
-        this.updatedDate = LocalDateTime.now();
-    }
-
-    public void activate() {
-        if (!this.status.canBeActivated()) {
-            throw new IllegalStateException("Cannot activate booking in status: " + this.status);
-        }
-        this.status = BookingStatus.ACTIVE;
-        this.actualStartDate = LocalDateTime.now();
-        this.pickupDate = LocalDateTime.now();
-        this.updatedDate = LocalDateTime.now();
-    }
-
-    public void complete() {
-        if (!this.status.canBeCompleted()) {
-            throw new IllegalStateException("Cannot complete booking in status: " + this.status);
-        }
-        this.status = BookingStatus.COMPLETED;
-        this.actualEndDate = LocalDateTime.now();
-        this.returnDate = LocalDateTime.now();
-        this.updatedDate = LocalDateTime.now();
-    }
-
-    public void cancel(String reason) {
-        if (!this.status.canBeCancelled()) {
-            throw new IllegalStateException("Cannot cancel booking in status: " + this.status);
-        }
-        this.status = BookingStatus.CANCELLED;
-        this.cancellationReason = reason;
-        this.cancelledDate = LocalDateTime.now();
-        this.updatedDate = LocalDateTime.now();
-    }
-
-    public void reject(String reason) {
-        if (!this.status.canBeConfirmed()) {
-            throw new IllegalStateException("Cannot reject booking in status: " + this.status);
-        }
-        this.status = BookingStatus.REJECTED;
-        this.cancellationReason = reason;
-        this.updatedDate = LocalDateTime.now();
-    }
-
-    public void markOverdue() {
-        if (this.status == BookingStatus.ACTIVE) {
-            this.status = BookingStatus.OVERDUE;
-            this.updatedDate = LocalDateTime.now();
-        }
-    }
+    // Legacy state transition methods removed - now handled by State Pattern
+    // See: BookingStateMachine and state implementations in state.booking.states package
 
     public boolean isOverdue() {
         if (this.status == BookingStatus.ACTIVE && this.endDate != null) {
@@ -234,6 +187,43 @@ public class Booking {
         this.endDate = newEndDate;
         this.calculateDuration();
         this.updatedDate = LocalDateTime.now();
+    }
+
+    // State Pattern Methods
+
+    /**
+     * Initializes the state machine for this booking.
+     * Should be called after loading from database.
+     *
+     * @param eventPublisher The event publisher for state change events
+     */
+    public void initializeStateMachine(com.locallend.locallend.event.EventPublisher eventPublisher) {
+        if (this.stateMachine == null) {
+            this.stateMachine = new BookingStateMachine(this, eventPublisher);
+            this.currentState = stateMachine.getCurrentState();
+        }
+    }
+
+    /**
+     * Gets the current state machine.
+     * Initializes with null event publisher if not already initialized.
+     *
+     * @return The booking state machine
+     */
+    public BookingStateMachine getStateMachine() {
+        if (this.stateMachine == null) {
+            initializeStateMachine(null);
+        }
+        return this.stateMachine;
+    }
+
+    /**
+     * Checks if the state machine is initialized.
+     *
+     * @return true if state machine is ready
+     */
+    public boolean hasStateMachine() {
+        return this.stateMachine != null;
     }
 
     public String getId() { return id; }

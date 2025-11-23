@@ -1,14 +1,25 @@
-version: '3.8'
+# =============================================================================
+# LocalLend 2.0 - Docker Compose Configuration
+# =============================================================================
+# Complete stack with MongoDB, Backend (Spring Boot), and Frontend (Nginx)
+# Refactored backend with Command Pattern, State Pattern, and Event-Driven Architecture
+# =============================================================================
 
 services:
+  # ---------------------------------------------------------------------------
+  # MongoDB Database Service
+  # ---------------------------------------------------------------------------
   mongodb:
     image: mongo:7
     container_name: locallend-mongodb
-    restart: always
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    environment:
+      MONGO_INITDB_DATABASE: locallend
     networks:
       - locallend-network
     healthcheck:
@@ -16,19 +27,42 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    command: mongod --quiet --logpath /dev/null
 
+  # ---------------------------------------------------------------------------
+  # Backend Service (Spring Boot - LocalLend 2.0)
+  # ---------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: locallend-backend
-    restart: always
+    image: locallend2.0:latest
+    container_name: locallend2.0
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/locallend
+      # Spring Configuration
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: 8080
+
+      # MongoDB Connection
+      MONGODB_URI: mongodb://mongodb:27017/locallend
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/locallend
+
+      # JWT Configuration (IMPORTANT: Change in production!)
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production-minimum-256-bits}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+
+      # Feature Flags (LocalLend 2.0 - All enabled by default)
+      USE_COMMAND_PATTERN: true
+      USE_STATE_PATTERN: true
+      USE_EVENT_DRIVEN: true
+      ENABLE_ALL_PATTERNS: true
+
+      # JVM Options
+      JAVA_OPTS: "-Xms512m -Xmx1024m -XX:+UseG1GC"
     env_file:
       - ./backend/.env
     depends_on:
@@ -36,7 +70,16 @@ services:
         condition: service_healthy
     networks:
       - locallend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
+  # ---------------------------------------------------------------------------
+  # Frontend Service (Nginx)
+  # ---------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
@@ -44,18 +87,72 @@ services:
       args:
         VITE_API_BASE_URL: http://localhost:8080
     container_name: locallend-frontend
-    restart: always
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - locallend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+# =============================================================================
+# Volumes (Persistent Data Storage)
+# =============================================================================
 volumes:
   mongodb_data:
     driver: local
+    name: locallend_mongodb_data
+  mongodb_config:
+    driver: local
+    name: locallend_mongodb_config
 
+# =============================================================================
+# Networks (Container Communication)
+# =============================================================================
 networks:
   locallend-network:
     driver: bridge
+    name: locallend_network
+
+# =============================================================================
+# Usage Instructions:
+# =============================================================================
+#
+# Start all services:
+#   docker-compose up -d
+#
+# Start only backend + database:
+#   docker-compose up -d backend
+#
+# View logs:
+#   docker-compose logs -f
+#   docker-compose logs -f backend
+#   docker-compose logs -f mongodb
+#
+# Stop all services:
+#   docker-compose down
+#
+# Stop and remove volumes (WARNING: deletes all data):
+#   docker-compose down -v
+#
+# Rebuild backend after code changes:
+#   docker-compose up -d --build backend
+#
+# Access services:
+#   Frontend:  http://localhost
+#   Backend:   http://localhost:8080
+#   MongoDB:   mongodb://localhost:27017/locallend
+#   Health:    http://localhost:8080/actuator/health
+#
+# Environment Variables:
+#   Copy backend/.env.example to backend/.env and customize
+#   Or set via shell:
+#     export JWT_SECRET="your-secret-here"
+#     docker-compose up -d
+# =============================================================================

@@ -148,6 +148,10 @@ public class User{
 	
 	public Boolean getIsActive(){return isActive;}
 	public void setIsActive(Boolean isActive){this.isActive=isActive;}
+
+	public boolean isActive() {
+		return this.isActive != null && this.isActive;
+	}
 	
 	public LocalDateTime getCreatedDate(){return createdDate;}
 	public void setCreatedDate(LocalDateTime createdDate){this.createdDate=createdDate;}

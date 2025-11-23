@@ -18,12 +18,21 @@ public class BookingFactory {
                                         LocalDateTime startDate, LocalDateTime endDate,
                                         String bookingNotes) {
         validateBookingParameters(item, borrower, owner, startDate, endDate);
-        Booking booking = new Booking(item, borrower, owner, startDate, endDate);
-        booking.setBookingNotes(bookingNotes);
-        booking.setStatus(BookingStatus.PENDING);
-        if (item.getDeposit() > 0) {
-            booking.setDepositAmount(item.getDeposit());
-        }
+        Booking booking = Booking.builder()
+                .item(item)
+                .itemId(item.getId())
+                .borrower(borrower)
+                .borrowerId(borrower.getId())
+                .owner(owner)
+                .ownerId(owner.getId())
+                .startDate(startDate)
+                .endDate(endDate)
+                .bookingNotes(bookingNotes)
+                .status(BookingStatus.PENDING)
+                .depositAmount(item.getDeposit() > 0 ? item.getDeposit() : 0.0)
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
         booking.calculateDuration();
         return booking;
     }
@@ -51,12 +60,23 @@ public class BookingFactory {
                                             LocalDateTime newEndDate, String reason) {
         validateBookingParameters(originalBooking.getItem(), originalBooking.getBorrower(),
                 originalBooking.getOwner(), newStartDate, newEndDate);
-        Booking rescheduled = new Booking(originalBooking.getItem(), originalBooking.getBorrower(),
-                originalBooking.getOwner(), newStartDate, newEndDate);
-        rescheduled.setDepositAmount(originalBooking.getDepositAmount());
-        rescheduled.setDepositPaid(originalBooking.getDepositPaid());
         String notes = originalBooking.getBookingNotes() != null ? originalBooking.getBookingNotes() + " " : "";
-        rescheduled.setBookingNotes(notes + "[RESCHEDULED: " + reason + "]");
+        Booking rescheduled = Booking.builder()
+                .item(originalBooking.getItem())
+                .itemId(originalBooking.getItemId())
+                .borrower(originalBooking.getBorrower())
+                .borrowerId(originalBooking.getBorrowerId())
+                .owner(originalBooking.getOwner())
+                .ownerId(originalBooking.getOwnerId())
+                .startDate(newStartDate)
+                .endDate(newEndDate)
+                .depositAmount(originalBooking.getDepositAmount())
+                .depositPaid(originalBooking.getDepositPaid())
+                .bookingNotes(notes + "[RESCHEDULED: " + reason + "]")
+                .status(BookingStatus.PENDING)
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
         rescheduled.calculateDuration();
         return rescheduled;
     }
@@ -64,14 +84,17 @@ public class BookingFactory {
     public Booking createTestBooking(String itemId, String borrowerId, String ownerId,
                                      BookingStatus status, LocalDateTime startDate,
                                      LocalDateTime endDate) {
-        Booking booking = new Booking();
-        booking.setItemId(itemId);
-        booking.setBorrowerId(borrowerId);
-        booking.setOwnerId(ownerId);
-        booking.setStatus(status);
-        booking.setStartDate(startDate);
-        booking.setEndDate(endDate);
-        booking.setBookingNotes("Test booking created by BookingFactory");
+        Booking booking = Booking.builder()
+                .itemId(itemId)
+                .borrowerId(borrowerId)
+                .ownerId(ownerId)
+                .status(status)
+                .startDate(startDate)
+                .endDate(endDate)
+                .bookingNotes("Test booking created by BookingFactory")
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
         booking.calculateDuration();
         return booking;
     }

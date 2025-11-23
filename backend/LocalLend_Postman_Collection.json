@@ -1,0 +1,966 @@
+{
+  "info": {
+    "name": "LocalLend API",
+    "description": "Complete API collection for LocalLend P2P lending platform with Command Pattern support",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "locallend-api-collection",
+    "version": "2.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-inject auth token if available",
+          "const token = pm.environment.get('auth_token');",
+          "if (token) {",
+          "    pm.request.headers.add({key: 'Authorization', value: 'Bearer ' + token});",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('user_id', response.id);",
+                  "    pm.environment.set('username', response.username);",
+                  "    console.log('User registered successfully:', response.username);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Test User\",\n  \"phoneNumber\": \"1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user in the system"
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('auth_token', response.token);",
+                  "    pm.environment.set('user_id', response.userId);",
+                  "    console.log('Login successful. Token saved.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"testuser\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticate user and receive JWT token"
+          },
+          "response": []
+        }
+      ],
+      "description": "User authentication endpoints"
+    },
+    {
+      "name": "2. Users",
+      "item": [
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            },
+            "description": "Get authenticated user's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"phoneNumber\": \"9876543210\",\n  \"profileImageUrl\": \"https://example.com/image.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            },
+            "description": "Update current user's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Public User Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/public",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "{{user_id}}", "public"]
+            },
+            "description": "Get public information about any user"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/search?query=test&page=0&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "test"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Search for users by name or username"
+          },
+          "response": []
+        }
+      ],
+      "description": "User management endpoints"
+    },
+    {
+      "name": "3. Items",
+      "item": [
+        {
+          "name": "Create Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('item_id', response.id);",
+                  "    console.log('Item created:', response.name);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Power Drill\",\n  \"description\": \"DeWalt 20V cordless power drill with battery\",\n  \"condition\": \"EXCELLENT\",\n  \"deposit\": 50.00,\n  \"categoryId\": \"{{category_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/items",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items"]
+            },
+            "description": "Create a new item for lending"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/items?page=0&size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get all available items with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Item by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/items/{{item_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items", "{{item_id}}"]
+            },
+            "description": "Get details of a specific item"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/items/search?q=drill&page=0&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "drill"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Full-text search for items"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Items by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/items/category/{{category_id}}?page=0&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items", "category", "{{category_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get items in a specific category"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Items",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/items/my-items",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items", "my-items"]
+            },
+            "description": "Get all items owned by current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Item",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Power Drill - Updated\",\n  \"description\": \"DeWalt 20V cordless power drill with 2 batteries\",\n  \"condition\": \"GOOD\",\n  \"deposit\": 45.00\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/items/{{item_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items", "{{item_id}}"]
+            },
+            "description": "Update item details (owner only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Item Availability",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/items/{{item_id}}/toggle-availability",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items", "{{item_id}}", "toggle-availability"]
+            },
+            "description": "Toggle item between available and unavailable"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Item",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/items/{{item_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "items", "{{item_id}}"]
+            },
+            "description": "Soft delete an item (owner only)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Item management endpoints"
+    },
+    {
+      "name": "4. Bookings (Legacy)",
+      "item": [
+        {
+          "name": "Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('booking_id', response.id);",
+                  "    console.log('Booking created:', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{borrower_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": \"{{item_id}}\",\n  \"startDate\": \"2024-12-01T10:00:00\",\n  \"endDate\": \"2024-12-05T10:00:00\",\n  \"bookingNotes\": \"Need this for a home renovation project\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings"]
+            },
+            "description": "Create a new booking (legacy implementation)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}"]
+            },
+            "description": "Get details of a specific booking"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Bookings (Borrower)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/my-bookings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "my-bookings"]
+            },
+            "description": "Get all bookings where current user is borrower"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Owned Bookings (Owner)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/my-owned",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "my-owned"]
+            },
+            "description": "Get all bookings where current user is owner"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pending Approvals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{owner_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/pending-approvals",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "pending-approvals"]
+            },
+            "description": "Get pending bookings awaiting owner approval"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{owner_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerNotes\": \"Approved. Please pick up between 9 AM - 5 PM\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}", "confirm"]
+            },
+            "description": "Confirm/approve a pending booking (owner only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Activate Booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{borrower_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}/activate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}", "activate"]
+            },
+            "description": "Activate booking when item is picked up (borrower only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{borrower_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}/complete",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}", "complete"]
+            },
+            "description": "Complete booking when item is returned (borrower only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Schedule conflict, need to reschedule\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}", "cancel"]
+            },
+            "description": "Cancel a booking (borrower or owner)"
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Booking",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{owner_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Item not available for those dates\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}", "reject"]
+            },
+            "description": "Reject a pending booking (owner only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/active",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "active"]
+            },
+            "description": "Get all active bookings in the system"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Overdue Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/overdue",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "overdue"]
+            },
+            "description": "Get all overdue bookings"
+          },
+          "response": []
+        }
+      ],
+      "description": "Legacy booking endpoints (MVC architecture)"
+    },
+    {
+      "name": "5. Bookings (Command Pattern) 🆕",
+      "item": [
+        {
+          "name": "Create Booking (Command)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('booking_id', response.id);",
+                  "    console.log('✅ Booking created via Command Pattern:', response.id);",
+                  "    console.log('Command execution time:', pm.response.responseTime + 'ms');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{borrower_id}}",
+                "description": "Required: Borrower user ID"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": \"{{item_id}}\",\n  \"startDate\": \"2024-12-01T10:00:00\",\n  \"endDate\": \"2024-12-05T10:00:00\",\n  \"bookingNotes\": \"Testing command pattern implementation\",\n  \"depositAmount\": 50.00\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings"]
+            },
+            "description": "Create booking using new Command Pattern (requires feature.use-command-pattern=true)"
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Booking (Command)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('✅ Booking confirmed via Command Pattern');",
+                  "    console.log('Status:', response.status);",
+                  "    console.log('State transition: PENDING → CONFIRMED');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{owner_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerNotes\": \"Confirmed via command pattern. Please arrive on time.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}", "confirm"]
+            },
+            "description": "Confirm booking using Command + State Pattern"
+          },
+          "response": []
+        },
+        {
+          "name": "Activate Booking (State Machine)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('✅ Booking activated via State Machine');",
+                  "    console.log('Status:', response.status);",
+                  "    console.log('State transition: CONFIRMED → ACTIVE');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{borrower_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{booking_id}}/activate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{booking_id}}", "activate"]
+            },
+            "description": "Activate booking - demonstrates state pattern transition"
+          },
+          "response": []
+        }
+      ],
+      "description": "New architecture endpoints using Command Pattern and State Machine"
+    },
+    {
+      "name": "6. Ratings",
+      "item": [
+        {
+          "name": "Create Rating",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rateeId\": \"{{owner_id}}\",\n  \"itemId\": \"{{item_id}}\",\n  \"bookingId\": \"{{booking_id}}\",\n  \"ratingType\": \"BORROWER_TO_OWNER\",\n  \"ratingValue\": 5,\n  \"comment\": \"Excellent item and great owner. Smooth transaction!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/ratings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ratings"]
+            },
+            "description": "Create a rating for a user or item"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Ratings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ratings/user/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ratings", "user", "{{user_id}}"]
+            },
+            "description": "Get all ratings received by a user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Item Ratings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ratings/item/{{item_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ratings", "item", "{{item_id}}"]
+            },
+            "description": "Get all ratings for an item"
+          },
+          "response": []
+        }
+      ],
+      "description": "Rating and review endpoints"
+    },
+    {
+      "name": "7. Categories",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/categories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "categories"]
+            },
+            "description": "Get all item categories"
+          },
+          "response": []
+        }
+      ],
+      "description": "Category management endpoints"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}

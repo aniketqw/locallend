@@ -16,6 +16,14 @@ import java.util.stream.Collectors;
 @Component
 public class BookingMapper {
 
+    /**
+     * Alias for toBookingResponseDto for convenience
+     */
+    public static BookingResponseDto toResponseDto(Booking booking) {
+        BookingMapper mapper = new BookingMapper();
+        return mapper.toBookingResponseDto(booking);
+    }
+
     public BookingResponseDto toBookingResponseDto(Booking booking) {
         if (booking == null) return null;
 
