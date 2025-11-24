@@ -68,9 +68,9 @@ USER locallend
 # Expose application port
 EXPOSE 8080
 
-# Health check endpoint
+# Health check endpoint (uses public /api/categories endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/actuator/health || exit 1
+    CMD curl -f http://localhost:8080/api/categories || exit 1
 
 # Environment variables (override at runtime with -e or docker-compose)
 ENV SPRING_PROFILES_ACTIVE=prod \

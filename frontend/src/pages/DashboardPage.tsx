@@ -375,14 +375,15 @@ ${booking.borrowerEmail ? `📧 Owner Contact: ${booking.ownerEmail || 'Not avai
 
     try {
       const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/${bookingId}/start`, {
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/${bookingId}/activate`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
           'X-User-Id': user.id
-        }
+        },
+        body: JSON.stringify({})
       });
 
       if (!response.ok) {
@@ -490,8 +491,8 @@ ${booking.borrowerEmail ? `📧 Owner Contact: ${booking.ownerEmail || 'Not avai
 
     try {
       const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/${bookingId}/approve`, {
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/bookings/${bookingId}/confirm`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
