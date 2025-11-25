@@ -69,7 +69,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBack, onRegister }) => {
         width: '100%',
         maxWidth: '400px'
       }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#1976d2' }}>
+        <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#ff9800' }}>
           Login to LocalLend
         </h1>
         
@@ -134,7 +134,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBack, onRegister }) => {
             style={{
               width: '100%',
               padding: '12px',
-              backgroundColor: isLoading ? '#ccc' : '#1976d2',
+              backgroundColor: isLoading ? '#ccc' : '#ff9800',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
@@ -151,7 +151,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBack, onRegister }) => {
           <p style={{ margin: '10px 0' }}>
             Don't have an account?{' '}
             <button type="button"
-              style={{ color: '#1976d2', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+              style={{ color: '#ff9800', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
               onClick={() => {
                 console.log('Register clicked (main frontend)');
                 // show immediate UI feedback so users/devs can see the click triggered
@@ -200,7 +200,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBack, onRegister }) => {
           )}
           {/* Small visible indicator used during debugging/deployment — removed later when stable */}
           {isRegistering && (
-            <div style={{ marginTop: '8px', color: '#1976d2', fontWeight: 600 }}>Navigating to Register…</div>
+            <div style={{ marginTop: '8px', color: '#ff9800', fontWeight: 600 }}>Navigating to Register…</div>
           )}
         </div>
       </div>

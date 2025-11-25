@@ -139,7 +139,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
         width: '100%',
         maxWidth: '500px'
       }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#1976d2' }}>
+        <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#ff9800' }}>
           Join LocalLend
         </h1>
         
@@ -283,7 +283,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
             style={{
               width: '100%',
               padding: '12px',
-              backgroundColor: isLoading ? '#ccc' : '#1976d2',
+              backgroundColor: isLoading ? '#ccc' : '#ff9800',
               color: 'white',
               border: 'none',
               borderRadius: '4px',

@@ -150,7 +150,7 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ onBack, se
     }}>
       {/* Navigation Bar */}
       <nav style={{
-        backgroundColor: '#1976d2',
+        backgroundColor: '#ff9800',
         color: 'white',
         padding: '12px 0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -249,7 +249,7 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ onBack, se
       {/* Search Results Content */}
       <div style={{ padding: '0 20px', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ marginBottom: '20px' }}>
-          <h1 style={{ color: '#1976d2', marginBottom: '10px' }}>
+          <h1 style={{ color: '#ff9800', marginBottom: '10px' }}>
             Search Results {searchQuery && `for "${searchQuery}"`}
           </h1>
           {selectedCategory && (
@@ -285,7 +285,7 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ onBack, se
                   onClick={() => onSearchQueryChange('')}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: '#1976d2',
+                    backgroundColor: '#ff9800',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
@@ -407,7 +407,7 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ onBack, se
                       style={{
                         width: '100%',
                         padding: '10px',
-                        backgroundColor: isOwn ? '#bdbdbd' : '#1976d2',
+                        backgroundColor: isOwn ? '#bdbdbd' : '#ff9800',
                         color: 'white',
                         border: 'none',
                         borderRadius: '4px',

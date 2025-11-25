@@ -220,7 +220,7 @@ const App = () => {
           </div>
         </div>
       )}
-      <nav style={{ backgroundColor: '#1976d2', color: 'white', padding: '12px 0', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '0' }}>
+      <nav style={{ backgroundColor: '#ff9800', color: 'white', padding: '12px 0', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '0' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
           <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
             <button onClick={navigateToHome} style={{ color: 'white', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', fontWeight: 'bold' }}>LocalLend</button>
@@ -240,8 +240,9 @@ const App = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {isAuthenticated && user ? (
               <>
-                <span style={{ color: 'white', fontSize: '14px', padding: '8px 12px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }}>Welcome, {user.name}!</span>
-                <button onClick={handleDashboard} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>Dashboard</button>
+                  <span style={{ color: 'white', fontSize: '14px', padding: '8px 12px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }}>Welcome, {user.name}!</span>
+                  <button onClick={handleBrowse} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>Browse Items</button>
+                  <button onClick={handleDashboard} style={{ color: 'white', textDecoration: 'none', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer' }}>Dashboard</button>
                 <button onClick={handleLogout} style={{ padding: '8px 16px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}>Logout</button>
               </>
             ) : (
@@ -256,14 +257,14 @@ const App = () => {
       </nav>
 
       <div style={{ padding: '20px' }}>
-        <header style={{ backgroundColor: '#1976d2', color: 'white', padding: '30px', borderRadius: '12px', marginBottom: '30px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+        <header style={{ backgroundColor: '#ff9800', color: 'white', padding: '30px', borderRadius: '12px', marginBottom: '30px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
           <h1 style={{ margin: '0 0 10px 0', fontSize: '2.5rem' }}>LocalLend - Peer-to-Peer Item Sharing</h1>
           <p style={{ margin: '0', fontSize: '1.2rem', opacity: '0.9' }}>A community platform for borrowing and lending items</p>
         </header>
 
         <main style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <section style={{ marginBottom: '40px', backgroundColor: '#ffffff', padding: '30px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ color: '#1976d2', marginBottom: '20px' }}>Welcome to LocalLend</h2>
+            <h2 style={{ color: '#ff9800', marginBottom: '20px' }}>Welcome to LocalLend</h2>
             <p style={{ fontSize: '1.1rem', lineHeight: '1.6', color: '#424242' }}>LocalLend is a peer-to-peer item sharing platform where users can:</p>
             <ul style={{ fontSize: '1rem', lineHeight: '1.8', color: '#424242' }}>
               <li>List items they own for others to borrow</li>

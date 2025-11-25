@@ -202,7 +202,7 @@ export const BookItemPage: React.FC<BookItemPageProps> = ({ onBack, item }) => {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <h2>Item not found</h2>
-        <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+        <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#ff9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
           Back
         </button>
       </div>
@@ -218,7 +218,7 @@ export const BookItemPage: React.FC<BookItemPageProps> = ({ onBack, item }) => {
       </div>
 
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
-        <h2 style={{ color: '#1976d2', marginBottom: '10px' }}>Request to Book Item</h2>
+        <h2 style={{ color: '#ff9800', marginBottom: '10px' }}>Request to Book Item</h2>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
           {item.images?.[0] && (
             <img src={item.images[0]} alt={item.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px' }} />
@@ -226,7 +226,7 @@ export const BookItemPage: React.FC<BookItemPageProps> = ({ onBack, item }) => {
           <div>
             <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>{item.name}</h3>
             <p style={{ margin: '0', color: '#666', fontSize: '14px' }}>{item.description}</p>
-            <p style={{ margin: '5px 0 0 0', color: '#1976d2', fontSize: '14px', fontWeight: 'bold' }}>Owner: {item.ownerName}</p>
+            <p style={{ margin: '5px 0 0 0', color: '#ff9800', fontSize: '14px', fontWeight: 'bold' }}>Owner: {item.ownerName}</p>
           </div>
         </div>
       </div>
@@ -329,7 +329,7 @@ export const BookItemPage: React.FC<BookItemPageProps> = ({ onBack, item }) => {
             style={{
               flex: 2,
               padding: '12px',
-              backgroundColor: isLoading || !formData.acceptTerms ? '#ccc' : '#1976d2',
+              backgroundColor: isLoading || !formData.acceptTerms ? '#ccc' : '#ff9800',
               color: 'white',
               border: 'none',
               borderRadius: '4px',

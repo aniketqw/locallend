@@ -300,7 +300,7 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
     }}>
       {/* Navigation Bar */}
       <nav style={{
-        backgroundColor: '#1976d2',
+        backgroundColor: '#ff9800',
         color: 'white',
         padding: '12px 0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -345,7 +345,7 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
 
       {/* Add Item Form */}
       <div style={{ padding: '0 20px', maxWidth: '800px', margin: '0 auto' }}>
-        <h1 style={{ marginBottom: '10px', color: '#1976d2' }}>Add New Item</h1>
+        <h1 style={{ marginBottom: '10px', color: '#ff9800' }}>Add New Item</h1>
         <p style={{ color: '#666', marginBottom: '30px' }}>
           List an item you'd like to lend to others in your community.
         </p>
@@ -599,7 +599,7 @@ export const AddItemPage: React.FC<AddItemPageProps> = ({ onBack }) => {
                   padding: '10px', 
                   backgroundColor: '#e3f2fd', 
                   borderRadius: '4px',
-                  color: '#1976d2',
+                  color: '#ff9800',
                   fontSize: '14px'
                 }}>
                   📤 Uploading images...

@@ -866,7 +866,7 @@ This message was sent through LocalLend platform.`);
     }}>
       {/* Navigation Bar */}
       <nav style={{
-        backgroundColor: '#1976d2',
+        backgroundColor: '#ff9800',
         color: 'white',
         padding: '12px 0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -911,7 +911,7 @@ This message was sent through LocalLend platform.`);
 
       {/* Dashboard Content */}
       <div style={{ padding: '0 20px', maxWidth: '1200px', margin: '0 auto' }}>
-        <h1 style={{ marginBottom: '30px', color: '#1976d2' }}>Dashboard</h1>
+        <h1 style={{ marginBottom: '30px', color: '#ff9800' }}>Dashboard</h1>
         
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -928,13 +928,13 @@ This message was sent through LocalLend platform.`);
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h2 style={{ color: '#1976d2', margin: 0 }}>My Items ({myItems.length})</h2>
+                <h2 style={{ color: '#ff9800', margin: 0 }}>My Items ({myItems.length})</h2>
                 {onAddItem && (
                   <button
                     onClick={onAddItem}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: '#1976d2',
+                      backgroundColor: '#ff9800',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
@@ -957,7 +957,7 @@ This message was sent through LocalLend platform.`);
                       onClick={onAddItem}
                       style={{
                         padding: '12px 24px',
-                        backgroundColor: '#1976d2',
+                        backgroundColor: '#ff9800',
                         color: 'white',
                         border: 'none',
                         borderRadius: '6px',
@@ -1087,9 +1087,9 @@ This message was sent through LocalLend platform.`);
                               style={{
                                 padding: '6px 12px',
                                 fontSize: '12px',
-                                border: '1px solid #1976d2',
+                                border: '1px solid #ff9800',
                                 backgroundColor: 'transparent',
-                                color: '#1976d2',
+                                color: '#ff9800',
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 fontWeight: 'bold'
@@ -1132,7 +1132,7 @@ This message was sent through LocalLend platform.`);
               borderRadius: '8px', 
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
             }}>
-              <h2 style={{ color: '#1976d2', marginBottom: '15px' }}>My Bookings ({myBookings.length})</h2>
+              <h2 style={{ color: '#ff9800', marginBottom: '15px' }}>My Bookings ({myBookings.length})</h2>
               <p style={{ color: '#666', marginBottom: '15px', fontSize: '14px' }}>Items you've borrowed or are borrowing from others</p>
               
               {myBookings.length === 0 ? (
@@ -1329,8 +1329,8 @@ This message was sent through LocalLend platform.`);
                             style={{
                               padding: '8px 16px',
                               backgroundColor: 'white',
-                              color: '#1976d2',
-                              border: '1px solid #1976d2',
+                              color: '#ff9800',
+                              border: '1px solid #ff9800',
                               borderRadius: '6px',
                               cursor: 'pointer',
                               fontSize: '13px',
@@ -1354,7 +1354,7 @@ This message was sent through LocalLend platform.`);
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               gridColumn: 'span 2'
             }}>
-              <h2 style={{ color: '#1976d2', marginBottom: '15px' }}>Booking Requests ({receivedBookings.length})</h2>
+              <h2 style={{ color: '#ff9800', marginBottom: '15px' }}>Booking Requests ({receivedBookings.length})</h2>
               <p style={{ color: '#666', marginBottom: '15px', fontSize: '14px' }}>People wanting to borrow your items - Manage approvals and track rentals</p>
               
               {receivedBookings.length === 0 ? (
@@ -1428,7 +1428,7 @@ This message was sent through LocalLend platform.`);
                             </div>
                             {booking.borrowerEmail && (
                               <div style={{ fontSize: '13px', color: '#666', marginBottom: '6px' }}>
-                                ✉️ Contact: <span style={{ color: '#1976d2' }}>{booking.borrowerEmail}</span>
+                                ✉️ Contact: <span style={{ color: '#ff9800' }}>{booking.borrowerEmail}</span>
                               </div>
                             )}
                           </div>
@@ -1590,8 +1590,8 @@ This message was sent through LocalLend platform.`);
                             style={{
                               padding: '10px 20px',
                               backgroundColor: 'white',
-                              color: '#1976d2',
-                              border: '2px solid #1976d2',
+                              color: '#ff9800',
+                              border: '2px solid #ff9800',
                               borderRadius: '8px',
                               cursor: 'pointer',
                               fontSize: '14px',

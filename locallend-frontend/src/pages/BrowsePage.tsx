@@ -1,5 +1,10 @@
 // Browse Items Page Component
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import type { Item, Category } from '../types';
+import { itemService } from '../services/itemService';
+import { categoryService } from '../services/categoryService';
+import { handleApiError } from '../services/api';
+import { DEFAULT_PAGE_SIZE } from '../utils/constants';
 
 export interface BrowsePageProps {
   onBack?: () => void;
@@ -9,56 +14,62 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  // Mock data for items
-  const mockItems = [
-    {
-      id: 1,
-      title: 'Electric Drill',
-      category: 'Tools',
-      description: 'Professional grade electric drill, perfect for home projects',
-      owner: 'John Smith',
-      pricePerDay: 15,
-      location: 'Downtown',
-      image: '🔧'
-    },
-    {
-      id: 2,
-      title: 'Canon Camera',
-      category: 'Electronics',
-      description: 'DSLR camera with multiple lenses for photography enthusiasts',
-      owner: 'Sarah Johnson',
-      pricePerDay: 25,
-      location: 'Uptown',
-      image: '📷'
-    },
-    {
-      id: 3,
-      title: 'Mountain Bike',
-      category: 'Sports',
-      description: 'High-quality mountain bike for trail adventures',
-      owner: 'Mike Wilson',
-      pricePerDay: 20,
-      location: 'Suburbs',
-      image: '🚵‍♂️'
-    },
-    {
-      id: 4,
-      title: 'Programming Books Set',
-      category: 'Books',
-      description: 'Complete set of modern programming language books',
-      owner: 'Lisa Chen',
-      pricePerDay: 5,
-      location: 'University Area',
-      image: '📚'
-    }
-  ];
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const filteredItems = mockItems.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Treat selectedCategory as a categoryId (empty = all)
+  const selectedCategoryId = selectedCategory || '';
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    // Fetch items whenever search or selected category changes
+    fetchItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedCategory]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await categoryService.getCategories();
+      setCategories(response.data || []);
+    } catch (err) {
+      // non-fatal - categories are just for the filter UI
+      console.error('Failed to load categories for Browse page', err);
+    }
+  };
+
+  const fetchItems = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      let response;
+      if (searchQuery) {
+        response = await itemService.searchItems(searchQuery, selectedCategoryId || undefined);
+      } else {
+        response = await itemService.getItems({ page: 0, size: DEFAULT_PAGE_SIZE, ...(selectedCategoryId && { categoryId: selectedCategoryId }) });
+      }
+
+      setItems(response.content || response.data || []);
+      setTotalItems(response.totalElements || response.count || (response.data || []).length || 0);
+    } catch (err) {
+      setError(handleApiError(err));
+      setItems([]);
+      setTotalItems(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleItemClick = (itemId: string) => {
+    const target = `${window.location.origin}${window.location.pathname}#/items/${itemId}`;
+    window.location.href = target;
+  };
 
   return (
     <div style={{
@@ -78,9 +89,12 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
           marginBottom: '30px',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <h1 style={{ color: '#1976d2', marginBottom: '20px' }}>
-            Browse Available Items
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+            <h1 style={{ color: '#ff9800', marginBottom: '20px' }}>
+              Browse Available Items
+            </h1>
+            <div style={{ color: '#666', fontSize: 14 }}>{totalItems} items</div>
+          </div>
           
           {/* Search and Filter */}
           <div style={{
@@ -115,10 +129,9 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
               }}
             >
               <option value="">All Categories</option>
-              <option value="Tools">Tools</option>
-              <option value="Electronics">Electronics</option>
-              <option value="Sports">Sports</option>
-              <option value="Books">Books</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
             </select>
           </div>
           
@@ -145,7 +158,7 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
           gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
           gap: '20px'
         }}>
-          {filteredItems.map(item => (
+          {items.map(item => (
             <div
               key={item.id}
               style={{
@@ -156,27 +169,32 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
                 transition: 'transform 0.2s',
                 cursor: 'pointer'
               }}
+              onClick={() => handleItemClick(item.id)}
               onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
               onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '15px' }}>
-                {item.image}
-              </div>
+                <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '15px' }}>
+                  {item.images && item.images.length > 0 ? (
+                    <img src={item.images[0]} alt={item.name} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
+                  ) : (
+                    '📦'
+                  )}
+                </div>
               
-              <h3 style={{ color: '#1976d2', marginBottom: '10px' }}>
-                {item.title}
+              <h3 style={{ color: '#ff9800', marginBottom: '10px' }}>
+                {item.name}
               </h3>
               
               <div style={{
                 display: 'inline-block',
                 backgroundColor: '#e3f2fd',
-                color: '#1976d2',
+                color: '#ff9800',
                 padding: '4px 8px',
                 borderRadius: '4px',
                 fontSize: '12px',
                 marginBottom: '10px'
               }}>
-                {item.category}
+                {item.categoryName || 'General'}
               </div>
               
               <p style={{ color: '#666', marginBottom: '15px', lineHeight: '1.5' }}>
@@ -185,11 +203,9 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
               
               <div style={{ marginBottom: '15px' }}>
                 <div style={{ fontSize: '14px', color: '#666' }}>
-                  Owner: {item.owner}
+                  Owner: {item.ownerName || 'Unknown'}
                 </div>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  Location: {item.location}
-                </div>
+                {/* Location is not part of the backend Item model - skip showing it here */}
               </div>
               
               <div style={{
@@ -198,19 +214,23 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
                 alignItems: 'center'
               }}>
                 <div style={{ fontWeight: 'bold', color: '#4caf50', fontSize: '18px' }}>
-                  ₹${item.pricePerDay}/day
+                  {item.deposit != null && item.deposit > 0 ? `₹${item.deposit} deposit` : 'No deposit'}
                 </div>
                 <button
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#1976d2',
+                    backgroundColor: '#ff9800',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '14px'
                   }}
-                  onClick={() => alert(`Request to borrow "${item.title}" - Feature coming soon!`)}
+                  onClick={(e) => {
+                    // Prevent card click navigation when pressing this button
+                    e.stopPropagation();
+                    alert(`Request to borrow "${item.name}" - Feature coming soon!`);
+                  }}
                 >
                   Request to Borrow
                 </button>
@@ -219,7 +239,15 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
           ))}
         </div>
 
-        {filteredItems.length === 0 && (
+        {loading && items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 30 }}>
+            <div>Loading items…</div>
+          </div>
+        ) : error ? (
+          <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <p style={{ color: '#b00020', fontSize: '18px' }}>{error}</p>
+          </div>
+        ) : items.length === 0 && (
           <div style={{
             backgroundColor: 'white',
             padding: '40px',
@@ -227,7 +255,7 @@ export const BrowsePage: React.FC<BrowsePageProps> = ({ onBack }) => {
             textAlign: 'center',
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}>
-            <p style={{ color: '#666', fontSize: '18px' }}>
+              <p style={{ color: '#666', fontSize: '18px' }}>
               No items found matching your search criteria.
             </p>
           </div>

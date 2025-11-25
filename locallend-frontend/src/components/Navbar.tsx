@@ -153,6 +153,10 @@ export const Navbar: React.FC = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
           {isAuthenticated ? (
             <>
+              {/* Browse items link for logged-in users */}
+              <Button color="inherit" component="a" href="#browse" sx={{ mr: 1 }}>
+                Browse
+              </Button>
               <IconButton color="inherit" sx={{ mr: 1 }}>
                 <Badge badgeContent={0} color="error">
                   <NotificationsIcon />
