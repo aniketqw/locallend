@@ -301,7 +301,7 @@ Please check:
       }
 
       // Refresh bookings data
-      const updatedBooking = await response.json();
+      await response.json();
       setMyBookings(prevBookings => 
         prevBookings.map(booking => 
           booking.id === bookingId ? { ...booking, status: 'CANCELLED' } : booking
@@ -402,7 +402,7 @@ ${booking.borrowerEmail ? `📧 Owner Contact: ${booking.ownerEmail || 'Not avai
       }
 
       // Update booking status
-      const updatedBooking = await response.json();
+      await response.json();
       setMyBookings(prevBookings => 
         prevBookings.map(booking => 
           booking.id === bookingId ? { ...booking, status: 'ACTIVE' } : booking
@@ -459,7 +459,7 @@ ${booking.borrowerEmail ? `📧 Owner Contact: ${booking.ownerEmail || 'Not avai
       }
 
       // Update booking status
-      const updatedBooking = await response.json();
+      await response.json();
       setMyBookings(prevBookings => 
         prevBookings.map(booking => 
           booking.id === bookingId ? { ...booking, status: 'COMPLETED' } : booking
@@ -520,7 +520,7 @@ ${booking.borrowerEmail ? `📧 Owner Contact: ${booking.ownerEmail || 'Not avai
       }
 
       // Update booking status in received bookings
-      const updatedBooking = await response.json();
+      await response.json();
       setReceivedBookings(prevBookings => 
         prevBookings.map(booking => 
           booking.id === bookingId ? { ...booking, status: 'CONFIRMED', ownerNotes: ownerNotes.trim() } : booking
@@ -587,7 +587,7 @@ ${booking.borrowerEmail ? `📧 Owner Contact: ${booking.ownerEmail || 'Not avai
       }
 
       // Update booking status in received bookings
-      const updatedBooking = await response.json();
+      await response.json();
       setReceivedBookings(prevBookings => 
         prevBookings.map(booking => 
           booking.id === bookingId ? { ...booking, status: 'REJECTED', rejectionReason: reason?.trim() } : booking
@@ -1144,7 +1144,7 @@ This message was sent through LocalLend platform.`);
               ) : (
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {myBookings.map((booking) => {
-                    const getStatusColor = (status) => {
+                    const getStatusColor = (status?: string) => {
                       switch(status?.toUpperCase()) {
                         case 'PENDING': return '#ff9800';
                         case 'CONFIRMED': case 'APPROVED': return '#4caf50';
@@ -1155,7 +1155,7 @@ This message was sent through LocalLend platform.`);
                       }
                     };
 
-                    const getStatusIcon = (status) => {
+                    const getStatusIcon = (status?: string) => {
                       switch(status?.toUpperCase()) {
                         case 'PENDING': return '⏳';
                         case 'CONFIRMED': case 'APPROVED': return '✅';
@@ -1366,7 +1366,7 @@ This message was sent through LocalLend platform.`);
               ) : (
                 <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
                   {receivedBookings.map((booking) => {
-                    const getStatusColor = (status: any) => {
+                    const getStatusColor = (status?: string) => {
                       switch(status?.toUpperCase()) {
                         case 'PENDING': return '#ff9800';
                         case 'CONFIRMED': case 'APPROVED': return '#4caf50';
@@ -1377,7 +1377,7 @@ This message was sent through LocalLend platform.`);
                       }
                     };
 
-                    const getStatusIcon = (status: any) => {
+                    const getStatusIcon = (status?: string) => {
                       switch(status?.toUpperCase()) {
                         case 'PENDING': return '⏳';
                         case 'CONFIRMED': case 'APPROVED': return '✅';

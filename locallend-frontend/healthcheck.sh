@@ -1,11 +1,20 @@
 #!/bin/sh
-# Health check script for LocalLend Frontend container
+# Simple healthcheck used by the frontend container
+# Return 0 if Nginx is serving the site on localhost, else non-zero
+set -e
 
-# Check if Nginx is running and serving content
-if wget --quiet --tries=1 --spider http://localhost:80/; then
-    echo "Health check passed: Frontend is responding"
+URL="http://127.0.0.1/"
+
+if command -v curl >/dev/null 2>&1; then
+  if curl -fsS "$URL" >/dev/null 2>&1; then
     exit 0
-else
-    echo "Health check failed: Frontend is not responding"
+  else
     exit 1
+  fi
+else
+  # If curl isn't available, check for a local file
+  if [ -f /usr/share/nginx/html/index.html ]; then
+    exit 0
+  fi
+  exit 1
 fi

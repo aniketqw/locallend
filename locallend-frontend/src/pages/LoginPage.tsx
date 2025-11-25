@@ -5,13 +5,16 @@ import type { LoginRequest } from '../types';
 
 export interface LoginPageProps {
   onBack?: () => void;
+  onRegister?: () => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onBack }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onBack, onRegister }) => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // UI feedback so we can confirm the click handler and fallback executed
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,9 +150,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBack }) => {
         <div style={{ textAlign: 'center' }}>
           <p style={{ margin: '10px 0' }}>
             Don't have an account?{' '}
-            <button 
+            <button type="button"
               style={{ color: '#1976d2', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-              onClick={() => console.log('Navigate to register')}
+              onClick={() => {
+                console.log('Register clicked (main frontend)');
+                // show immediate UI feedback so users/devs can see the click triggered
+                try { setIsRegistering(true); } catch {}
+                // prefer app-level handler when available, otherwise fall back to router
+                if (onRegister) {
+                  // App-level state navigation
+                  try {
+                    onRegister();
+                    return;
+                  } catch (e) {
+                    console.warn('onRegister handler threw:', e);
+                  }
+                }
+
+                // We avoid using react-router navigate here because the app does not run inside a Router
+                // in the production bundle served by nginx. The app-level `onRegister` handler or the
+                // hard redirect fallback (below) is the reliable path.
+
+                // Final fallback: write the hash + persist, then force a full absolute redirect
+                // Using location.assign/replace on an absolute URL is the most robust way to force
+                // the browser to load the app with the desired hash (works even when SPA routing
+                // wrappers are absent or broken in production builds).
+                try {
+                  window.location.hash = '#register';
+                  localStorage.setItem('currentPage', 'register');
+                  // Try a hard assign to the absolute URL to force navigation
+                  const target = window.location.origin + window.location.pathname + '#register';
+                  // Use replace to avoid creating an extra history entry if possible
+                  window.location.replace ? window.location.replace(target) : (window.location.href = target);
+                } catch (e) {
+                  console.error('Register fallback failed:', e);
+                }
+              }}
             >
               Register here
             </button>
@@ -161,6 +197,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBack }) => {
             >
               ← Back to Home
             </button>
+          )}
+          {/* Small visible indicator used during debugging/deployment — removed later when stable */}
+          {isRegistering && (
+            <div style={{ marginTop: '8px', color: '#1976d2', fontWeight: 600 }}>Navigating to Register…</div>
           )}
         </div>
       </div>

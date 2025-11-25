@@ -70,6 +70,5 @@ pids/
 coverage/
 .nyc_output/
 
-# Dependencies lock files (package-lock.json will be copied separately)
-package-lock.json
+# Dependencies lock files
 yarn.lock

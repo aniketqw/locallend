@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { authService } from '../services/authService';
 import type { User, LoginRequest, RegisterRequest } from '../types';
 
@@ -66,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (userData: RegisterRequest): Promise<void> => {
     setIsLoading(true);
     try {
-      const user = await authService.register(userData);
+      await authService.register(userData);
       // After successful registration, auto-login the user
       const loginResponse = await authService.login({
         usernameOrEmail: userData.username,

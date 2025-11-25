@@ -22,10 +22,14 @@ const App = () => {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // Restore last page from localStorage (simple persistence)
+  // Restore last page from localStorage or URL hash (simple persistence)
   useEffect(() => {
+    // If an explicit hash is present, prefer it (for cross-build/routing compatibility)
+    const hashPage = window.location.hash ? window.location.hash.replace('#', '') as Page : null;
     const saved = localStorage.getItem('currentPage') as Page | null;
-    if (saved) {
+    if (hashPage) {
+      setCurrentPage(hashPage);
+    } else if (saved) {
       // If page requires auth and user not logged in, fallback to home
       const authPages: Page[] = ['dashboard', 'my-items', 'my-bookings', 'add-item', 'book-item'];
       if (authPages.includes(saved) && !user) {
@@ -44,6 +48,16 @@ const App = () => {
       }
     }
   }, [user]);
+
+  // Listen for hash changes so fallback navigation (e.g. `location.hash='#register'`) works
+  useEffect(() => {
+    const onHash = () => {
+      const p = window.location.hash ? window.location.hash.replace('#', '') as Page : null;
+      if (p && p !== currentPage) setCurrentPage(p);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [currentPage]);
 
   // Persist page on change
   useEffect(() => {
@@ -69,6 +83,37 @@ const App = () => {
   }, []);
 
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  // Debugging: surface any uncaught runtime errors to the UI so blank screens are diagnosable
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onErr = (event: any) => {
+      try {
+        const msg = event?.message || String(event?.reason || event);
+        console.error('Global error captured:', event);
+        setGlobalError(msg?.toString?.() || 'Unknown error');
+      } catch (e) {
+        setGlobalError('Fatal error (could not stringify)');
+      }
+    };
+
+    const onRejection = (ev: PromiseRejectionEvent) => {
+      try {
+        const info = ev?.reason?.message || String(ev?.reason || ev);
+        console.error('Unhandled rejection:', ev);
+        setGlobalError(info?.toString?.() || 'Unhandled rejection');
+      } catch {
+        setGlobalError('Unhandled rejection (could not stringify)');
+      }
+    };
+
+    window.addEventListener('error', onErr as EventListener);
+    window.addEventListener('unhandledrejection', onRejection as EventListener);
+    return () => {
+      window.removeEventListener('error', onErr as EventListener);
+      window.removeEventListener('unhandledrejection', onRejection as EventListener);
+    };
+  }, []);
 
   // Auto-route to dashboard after successful login
   useEffect(() => {
@@ -85,9 +130,8 @@ const App = () => {
 
   const handleDashboard = () => setCurrentPage('dashboard');
 
-  const handleMyItems = () => setCurrentPage('my-items');
-
-  const handleMyBookings = () => setCurrentPage('my-bookings');
+  // my-items / my-bookings routing are available via menu/buttons in the app,
+  // these local handlers were defined but not used — removed to avoid TS errors.
 
   const handleAddItem = () => setCurrentPage('add-item');
 
@@ -125,7 +169,7 @@ const App = () => {
 
   // Render different pages based on current page state
   if (currentPage === 'login') {
-    return <LoginPage onBack={navigateToHome} />;
+    return <LoginPage onBack={navigateToHome} onRegister={handleRegister} />;
   }
 
   if (currentPage === 'register') {
@@ -162,6 +206,20 @@ const App = () => {
 
   return (
     <div style={{ fontFamily: 'Roboto, Arial, sans-serif', margin: '0', padding: '0', backgroundColor: '#ffffff', color: '#213547', minHeight: '100vh' }}>
+      {/* Global error overlay (diagnostic) */}
+      {globalError && (
+        <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ maxWidth: '900px', width: 'calc(100% - 40px)', background: 'rgba(255,255,255,0.98)', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', padding: '22px', borderRadius: '8px', border: '2px solid #f44336', color: '#333' }}>
+            <h3 style={{ margin: 0, color: '#b71c1c' }}>Application error detected</h3>
+            <p style={{ marginTop: '8px' }}>The app encountered a runtime error. This overlay is a diagnostic helper — please copy the message below and share it with me.</p>
+            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #eee', maxHeight: '220px', overflow: 'auto' }}>{globalError}</pre>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'flex-end' }}>
+              <button style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', background: 'white', cursor: 'pointer' }} onClick={() => { navigator.clipboard?.writeText(globalError || ''); }}>Copy</button>
+              <button style={{ padding: '8px 12px', borderRadius: '4px', border: 'none', background: '#f44336', color: 'white', cursor: 'pointer' }} onClick={() => setGlobalError(null)}>Dismiss</button>
+            </div>
+          </div>
+        </div>
+      )}
       <nav style={{ backgroundColor: '#1976d2', color: 'white', padding: '12px 0', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '0' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
           <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>

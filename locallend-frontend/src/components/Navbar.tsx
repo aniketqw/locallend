@@ -18,11 +18,10 @@ import {
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Person as PersonIcon,
   Notifications as NotificationsIcon,
   ExitToApp as LogoutIcon
 } from '@mui/icons-material';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+// avoid react-router hooks/components in production bundle (no Router)
 import { useAuth } from '../context/AuthContext';
 import { categoryService } from '../services/categoryService';
 import type { Category } from '../types';
@@ -34,8 +33,7 @@ export const Navbar: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   
   const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  // No react-router navigate in production: use window.location updates instead
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -71,7 +69,8 @@ export const Navbar: React.FC = () => {
   const handleLogout = () => {
     logout();
     handleUserMenuClose();
-    navigate('/');
+    // ensure we navigate back to root safely
+    window.location.href = window.location.origin + window.location.pathname + '#';
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -82,7 +81,9 @@ export const Navbar: React.FC = () => {
       if (selectedCategory) {
         searchParams.set('categoryId', selectedCategory);
       }
-      navigate(`/?${searchParams.toString()}`);
+      const qs = searchParams.toString();
+      const target = qs ? `${window.location.origin}${window.location.pathname}?${qs}` : `${window.location.origin}${window.location.pathname}`;
+      window.location.href = target;
     }
   };
 
@@ -91,10 +92,10 @@ export const Navbar: React.FC = () => {
   return (
     <AppBar position="static">
       <Toolbar>
-        <Typography
+          <Typography
           variant="h6"
-          component={Link}
-          to="/"
+          component="a"
+          href="#"
           sx={{
             flexGrow: 0,
             mr: 4,
@@ -176,14 +177,14 @@ export const Navbar: React.FC = () => {
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
               >
                 <MenuItem onClick={handleUserMenuClose}>
-                  <Link to="/dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <a href="#dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>
                     Dashboard
-                  </Link>
+                  </a>
                 </MenuItem>
                 <MenuItem onClick={handleUserMenuClose}>
-                  <Link to="/profile" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <a href="#profile" style={{ textDecoration: 'none', color: 'inherit' }}>
                     Profile
-                  </Link>
+                  </a>
                 </MenuItem>
                 <MenuItem onClick={handleLogout}>
                   <LogoutIcon sx={{ mr: 1 }} />
@@ -195,8 +196,8 @@ export const Navbar: React.FC = () => {
             <>
               <Button
                 color="inherit"
-                component={Link}
-                to="/login"
+                component="a"
+                href="#login"
                 sx={{ mr: 1 }}
               >
                 Login
@@ -204,8 +205,8 @@ export const Navbar: React.FC = () => {
               <Button
                 variant="outlined"
                 color="inherit"
-                component={Link}
-                to="/register"
+                component="a"
+                href="#register"
               >
                 Register
               </Button>

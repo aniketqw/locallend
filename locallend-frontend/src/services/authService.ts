@@ -1,4 +1,4 @@
-import api, { addUserIdHeader } from './api';
+import api from './api';
 import type { 
   LoginRequest, 
   RegisterRequest, 

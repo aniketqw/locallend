@@ -19,82 +19,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Test backend connectivity
-  const testBackendConnection = async () => {
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-    console.log('🔍 Testing connection to:', backendUrl);
-    
-    try {
-      // Test multiple endpoints to find what works
-      const testEndpoints = [
-        '/api/categories',
-        '/api/auth/login', // This should exist according to the guide
-        '/actuator/health', // Common Spring Boot health endpoint
-        '/', // Basic root endpoint
-      ];
-      
-      let successFound = false;
-      let results = [];
-      
-      for (const endpoint of testEndpoints) {
-        try {
-          console.log(`Testing ${backendUrl}${endpoint}`);
-          const response = await fetch(`${backendUrl}${endpoint}`, {
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          console.log(`Response for ${endpoint}:`, response.status, response.statusText);
-          const responseText = await response.text();
-          console.log(`Response body:`, responseText);
-          
-          results.push(`${endpoint}: ${response.status} ${response.statusText} - ${responseText.substring(0, 100)}`);
-          
-          if (response.ok) {
-            successFound = true;
-            alert(`✅ Backend connection successful!\nURL: ${backendUrl}${endpoint}\nStatus: ${response.status}\nResponse: ${responseText.substring(0, 200)}...\n\nBackend is reachable!`);
-            break;
-          }
-        } catch (err: any) {
-          console.error(`Error testing ${endpoint}:`, err);
-          results.push(`${endpoint}: ${err.message}`);
-        }
-      }
-      
-      if (!successFound) {
-        alert(`❌ Cannot connect to backend:\nURL: ${backendUrl}\n\nTest Results:\n${results.join('\n')}\n\nPossible issues:\n1. Backend not running on port 8080\n2. Backend running on different port\n3. CORS not configured\n4. Backend bound to localhost only`);
-      }
-      
-    } catch (error: any) {
-      console.error('Connection test failed:', error);
-      alert(`❌ Network error:\nURL: ${backendUrl}\nError: ${error.message}\n\nCheck:\n1. Is backend running?\n2. What port is it on?\n3. Is Docker networking working?`);
-    }
-  };
-
-  // Test alternative ports
-  const testAlternativePort = async (port: number) => {
-    const testUrl = `http://localhost:${port}`;
-    console.log(`🔍 Testing alternative port: ${testUrl}`);
-    
-    try {
-      const response = await fetch(`${testUrl}/api/categories`, {
-        method: 'GET',
-        mode: 'cors',
-      });
-      
-      if (response.ok) {
-        alert(`✅ Found backend on port ${port}!\nURL: ${testUrl}\nUpdate your .env file:\nVITE_API_BASE_URL=http://localhost:${port}`);
-      } else {
-        alert(`⚠️ Port ${port} responded with: ${response.status} ${response.statusText}`);
-      }
-    } catch (error: any) {
-      console.log(`Port ${port}: ${error.message}`);
-      alert(`❌ Port ${port}: ${error.message}`);
-    }
-  };
+  // (removed debug-only connectivity helpers)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -151,11 +76,29 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
       
       await register(registerData);
       
-      alert(`Registration successful! Welcome ${formData.name}!`);
+      // Registration succeeded — do not block with alert(). Redirect immediately
+      console.log(`Registration successful for ${formData.name}`);
       
-      // Redirect back to home after successful registration
-      if (onBack) {
-        onBack();
+      // Redirect to home after successful registration.
+      // Try the app-level handler, but always enforce a final redirect so registration
+      // reliably returns the user to the home page even when the UI is loaded as a
+      // static bundle (no Router / app-level `onBack` may be absent).
+      try {
+        if (onBack) {
+          try { onBack(); } catch (e) { console.warn('onBack handler threw:', e); }
+        }
+
+        // Persist page and perform a guaranteed hard redirect to the home hash.
+        localStorage.setItem('currentPage', 'home');
+        const target = window.location.origin + window.location.pathname + '#home';
+        // Use replace when available so we don't leave an extra history entry
+        if (window.location.replace) {
+          window.location.replace(target);
+        } else {
+          window.location.href = target;
+        }
+      } catch (e) {
+        console.error('Fallback navigation to home failed:', e);
       }
     } catch (error: any) {
       console.error('Registration failed:', error);
@@ -200,48 +143,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onBack }) => {
           Join LocalLend
         </h1>
         
-        {/* Backend Connection Test Buttons */}
-        <div style={{ marginBottom: '20px' }}>
-          <button
-            type="button"
-            onClick={testBackendConnection}
-            style={{
-              width: '100%',
-              padding: '8px',
-              backgroundColor: '#f0f0f0',
-              color: '#666',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              marginBottom: '8px'
-            }}
-          >
-            🔍 Test Backend Connection (Port 8080)
-          </button>
-          
-          <div style={{ display: 'flex', gap: '5px' }}>
-            {[8081, 8082, 9090, 3000].map(port => (
-              <button
-                key={port}
-                type="button"
-                onClick={() => testAlternativePort(port)}
-                style={{
-                  flex: 1,
-                  padding: '6px',
-                  backgroundColor: '#e8f4fd',
-                  color: '#1976d2',
-                  border: '1px solid #1976d2',
-                  borderRadius: '3px',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
-              >
-                :{port}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* removed internal connectivity test helpers */}
         
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>

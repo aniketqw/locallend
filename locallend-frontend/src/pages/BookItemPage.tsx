@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { bookingService } from '../services/bookingService';
-import type { CreateBookingRequest } from '../types';
+// bookingService and CreateBookingRequest are not required in this component yet; removed unused imports to avoid build errors
 
 interface BookItemPageProps {
   onBack: () => void;

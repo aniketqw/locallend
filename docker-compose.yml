@@ -28,5 +28,16 @@ services:
       # These will override .env if needed
       MONGODB_URI: mongodb://mongo:27017/locallend
 
+  frontend:
+    build:
+      context: ./locallend-frontend
+      dockerfile: Dockerfile
+    container_name: locallend-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
 volumes:
   mongo_data:

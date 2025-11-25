@@ -1,64 +1,10 @@
 // Home/Dashboard Page Component
 // This displays items available for borrowing with search and filter functionality
 
-export interface HomePageProps {}
-
-// Placeholder function - will be converted to React component
-export const HomePage = () => {
-  return `
-    <div class="home-page">
-      <div class="hero-section">
-        <h1>Find Items to Borrow in Your Community</h1>
-        <p>LocalLend connects neighbors to share items and build community trust.</p>
-      </div>
-      
-      <div class="filters-section">
-        <div class="filter-controls">
-          <select name="category">
-            <option value="">All Categories</option>
-          </select>
-          <select name="condition">
-            <option value="">All Conditions</option>
-            <option value="NEW">New</option>
-            <option value="EXCELLENT">Excellent</option>
-            <option value="GOOD">Good</option>
-            <option value="FAIR">Fair</option>
-          </select>
-          <select name="sort">
-            <option value="createdAt,desc">Newest First</option>
-            <option value="name,asc">Name A-Z</option>
-            <option value="averageRating,desc">Highest Rated</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="items-grid">
-        <!-- Items will be dynamically loaded here -->
-        <div class="item-card">
-          <div class="item-image">📷</div>
-          <h3>Sample Item</h3>
-          <p>Description of the item...</p>
-          <div class="item-meta">
-            <span class="condition">Condition: Excellent</span>
-            <span class="deposit">Deposit: ₹50</span>
-            <span class="rating">⭐ 4.5</span>
-          </div>
-          <button>View Details</button>
-        </div>
-      </div>
-      
-      <div class="pagination">
-        <button disabled>Previous</button>
-        <span>Page 1 of 1</span>
-        <button disabled>Next</button>
-      </div>
-    </div>
-  `;
-};
-
-// When React is properly installed, this will become:
-/*
+// Home/Dashboard Page Component
+// This displays items available for borrowing with search and filter functionality
 import React, { useState, useEffect } from 'react';
+import type { Item, Category, ItemCondition } from '../types';
 import {
   Container,
   Grid,
@@ -66,7 +12,6 @@ import {
   CardMedia,
   CardContent,
   Typography,
-  Button,
   Box,
   FormControl,
   InputLabel,
@@ -78,7 +23,8 @@ import {
   Chip,
   Rating
 } from '@mui/material';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+// The app does not run inside a react-router <Router> in the production nginx build.
+// Avoid using react-router hooks here because they will throw when no Router exists.
 import { itemService } from '../services/itemService';
 import { categoryService } from '../services/categoryService';
 import { handleApiError } from '../services/api';
@@ -86,15 +32,15 @@ import { formatCurrency } from '../utils/helpers';
 import { ITEM_CONDITIONS, DEFAULT_PAGE_SIZE } from '../utils/constants';
 
 export const HomePage: React.FC = () => {
-  const [items, setItems] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
+  // Read initial params from the location.search so the UI still respects URL filters
+  const [searchParams, setSearchParams] = useState<URLSearchParams>(() => new URLSearchParams(window.location.search));
 
   // Get current filters from URL
   const currentPage = parseInt(searchParams.get('page') || '1');
@@ -130,13 +76,13 @@ export const HomePage: React.FC = () => {
         size: DEFAULT_PAGE_SIZE,
         sort,
         ...(categoryId && { categoryId }),
-        ...(condition && { condition }),
+        ...(condition && { condition: condition as ItemCondition }),
         ...(query && { query })
       };
 
       let response;
       if (query) {
-        response = await itemService.searchItems(query, categoryId, condition);
+        response = await itemService.searchItems(query, categoryId, condition as ItemCondition);
       } else {
         response = await itemService.getItems(params);
       }
@@ -152,7 +98,7 @@ export const HomePage: React.FC = () => {
   };
 
   const handleFilterChange = (filterName: string, value: string) => {
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams as any);
     
     if (value) {
       newParams.set(filterName, value);
@@ -163,17 +109,24 @@ export const HomePage: React.FC = () => {
     // Reset to page 1 when filters change
     newParams.set('page', '1');
     
+    // update URL query string to keep behavior similar to the router-driven app
+    const qs = newParams.toString();
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
     setSearchParams(newParams);
   };
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
-    const newParams = new URLSearchParams(searchParams);
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
+    const newParams = new URLSearchParams(searchParams as any);
     newParams.set('page', page.toString());
+    const qs = newParams.toString();
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
     setSearchParams(newParams);
   };
 
   const handleItemClick = (itemId: string) => {
-    navigate(`/items/${itemId}`);
+    // No router available in production build; use a safe absolute redirect
+    const target = `${window.location.origin}${window.location.pathname}#/items/${itemId}`;
+    window.location.href = target;
   };
 
   if (loading && items.length === 0) {
@@ -352,4 +305,3 @@ export const HomePage: React.FC = () => {
     </Container>
   );
 };
-*/
