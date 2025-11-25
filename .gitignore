@@ -55,3 +55,5 @@ API_CATEGORIES_ENDPOINTS.txt
 
 # PowerShell scripts
 *.ps1
+
+/docs
